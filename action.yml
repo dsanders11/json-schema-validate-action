@@ -1,0 +1,31 @@
+name: JSON Schema Validate
+description: Validates YAML/JSON files against a JSON schema
+author: David Sanders
+
+branding:
+  icon: check
+  color: green
+
+inputs:
+  schema:
+    description: URL or file path to JSON schema to validate against
+    required: true
+  files:
+    description: Multiline input of file paths to validate - supports globs
+    required: true
+  fail-on-invalid:
+    description: Whether or not to set action failure if a file is invalid
+    required: false
+    default: true
+  cache-remote-schema:
+    description: Whether or not to cache the schema if remote
+    required: false
+    default: true
+
+outputs:
+  valid:
+    description: true if all files are valid, otherwise false
+
+runs:
+  using: node20
+  main: dist/index.js

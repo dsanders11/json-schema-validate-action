@@ -1,0 +1,179 @@
+{
+  "title": "JSON schema for EVM configuration files",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "defaultTarget": {
+      "description": "Default build target",
+      "type": "string",
+      "enum": [
+        "breakpad",
+        "chromedriver",
+        "electron",
+        "electron:dist",
+        "mksnapshot",
+        "node:headers",
+        "chrome"
+      ]
+    },
+    "extends": {
+      "description": "Name of base config to extend",
+      "type": "string",
+      "minLength": 1
+    },
+    "goma": {
+      "description": "Goma mode to use",
+      "type": "string",
+      "enum": [
+        "cache-only",
+        "cluster",
+        "none"
+      ],
+      "default": "cache-only"
+    },
+    "gomaSource": {
+      "description": "Goma client is from a non-default source",
+      "type": "string",
+      "enum": [
+        "msft"
+      ]
+    },
+    "root": {
+      "description": "Path of the top directory. Home of the .gclient file",
+      "type": "string",
+      "minLength": 1
+    },
+    "remotes": {
+      "description": "Remotes for Git checkouts",
+      "type": "object",
+      "properties": {
+        "electron": {
+          "description": "Remotes for the Electron repo",
+          "type": "object",
+          "properties": {
+            "fork": {
+              "description": "Fork remote",
+              "type": "string",
+              "anyOf": [
+                {
+                  "format": "uri"
+                },
+                {
+                  "pattern": "^git@.+$"
+                }
+              ],
+              "minLength": 1
+            },
+            "origin": {
+              "description": "Origin remote",
+              "type": "string",
+              "anyOf": [
+                {
+                  "format": "uri"
+                },
+                {
+                  "pattern": "^git@.+$"
+                }
+              ],
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "origin"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "electron"
+      ]
+    },
+    "gen": {
+      "description": "Configuration for GN",
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "Extra arguments for GN",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "out": {
+          "description": "Output directory",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "args",
+        "out"
+      ]
+    },
+    "env": {
+      "description": "Environment variables set when building Electron",
+      "type": "object",
+      "properties": {
+        "GIT_CACHE_PATH": {
+          "description": "Path to use as git cache for gclient",
+          "type": "string",
+          "minLength": 1
+        },
+        "CHROMIUM_BUILDTOOLS_PATH": {
+          "description": "Path of Chromium buildtools in the checkout",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "CHROMIUM_BUILDTOOLS_PATH"
+      ]
+    },
+    "configValidationLevel": {
+      "description": "Validation level for this configuration",
+      "type": "string",
+      "enum": [
+        "strict",
+        "warn",
+        "none"
+      ],
+      "default": "strict"
+    }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "required": [
+        "extends"
+      ]
+    },
+    {
+      "properties": {
+        "defaultTarget": {
+          "type": "string",
+          "pattern": "chrome"
+        }
+      },
+      "required": [
+        "defaultTarget",
+        "env",
+        "root"
+      ]
+    },
+    {
+      "required": [
+        "root",
+        "remotes",
+        "gen",
+        "env"
+      ]
+    }
+  ]
+}

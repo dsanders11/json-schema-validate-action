@@ -1,0 +1,92 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-typescript:
+    name: TypeScript Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Setup Node.js
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Dependencies
+        run: npm ci
+      - name: Check Format
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm run ci-test
+
+  test-action:
+    name: GitHub Actions Test
+    runs-on: ubuntu-latest
+    needs: test-typescript
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - name: Test Local Action (Single File Valid)
+        id: single-file-valid
+        uses: ./
+        with:
+          schema: https://json.schemastore.org/github-workflow.json
+          files: .github/workflows/ci.yml
+      - name: Test Local Action (Single File Not Valid)
+        id: single-file-not-valid
+        uses: ./
+        with:
+          # Use the wrong schema so it fails validation
+          schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
+          files: .github/workflows/ci.yml
+          fail-on-invalid: false
+      - name: Test Local Action (Multiple File Valid)
+        id: multiple-file-valid
+        uses: ./
+        with:
+          schema: https://json.schemastore.org/github-workflow.json
+          files: .github/workflows/**.yml
+      - name: Test Local Action (Multiple File Not Valid)
+        id: multiple-file-not-valid
+        uses: ./
+        with:
+          # Use the wrong schema so it fails validation
+          schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
+          files: .github/workflows/**.yml
+          fail-on-invalid: false
+      - name: Confirm Output
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const assert = require('node:assert');
+
+            assert.strictEqual(${{ steps.single-file-valid.outputs.valid }}, true, 'Expected output for single file valid to be true');
+            assert.strictEqual(${{ steps.single-file-not-valid.outputs.valid }}, false, 'Expected output for single file invalid to be false');
+            assert.strictEqual(${{ steps.multiple-file-valid.outputs.valid }}, true, 'Expected output for multiple file valid to be true');
+            assert.strictEqual(${{ steps.multiple-file-not-valid.outputs.valid }}, false, 'Expected output for multiple file invalid to be false');
+
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    needs: test-action
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      - run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
