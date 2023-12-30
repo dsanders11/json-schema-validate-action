@@ -8,6 +8,7 @@ import * as glob from '@actions/glob';
 import * as http from '@actions/http-client';
 
 import Ajv2019 from 'ajv/dist/2019';
+import AjvDraft04 from 'ajv-draft-04';
 import AjvFormats from 'ajv-formats';
 import * as yaml from 'yaml';
 
@@ -72,12 +73,27 @@ export async function run(): Promise<void> {
     }
 
     // Load and compile the schema
-    const schema = yaml.parse(await fs.readFile(schemaPath, 'utf-8'));
-    const ajv = new Ajv2019();
-    /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
-    ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
-    ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
-    /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    const schema: Record<string, unknown> = JSON.parse(
+      await fs.readFile(schemaPath, 'utf-8')
+    );
+
+    if (typeof schema.$schema !== 'string') {
+      core.setFailed('JSON schema missing $schema key');
+      return;
+    }
+
+    const draft04Schema =
+      schema.$schema === 'http://json-schema.org/draft-04/schema#';
+
+    const ajv = draft04Schema ? new AjvDraft04() : new Ajv2019();
+
+    if (!draft04Schema) {
+      /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+      ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
+      ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
+      /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    }
+
     const validate = AjvFormats(ajv).compile(schema);
 
     let valid = true;

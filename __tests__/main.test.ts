@@ -283,6 +283,24 @@ describe('action', () => {
     }
   });
 
+  it('fails if schema missing $schema key', async () => {
+    mockGetBooleanInput({});
+    mockGetInput({ schema });
+    mockGetMultilineInput({ files });
+
+    jest
+      .mocked(fs.readFile)
+      .mockResolvedValueOnce(schemaContents.replace('$schema', '_schema'));
+
+    await main.run();
+    expect(runSpy).toHaveReturned();
+    expect(process.exitCode).not.toBeDefined();
+
+    expect(core.setFailed).toHaveBeenLastCalledWith(
+      'JSON schema missing $schema key'
+    );
+  });
+
   it('fails if no files to validate', async () => {
     mockGetBooleanInput({});
     mockGetInput({ schema });
@@ -376,5 +394,29 @@ describe('action', () => {
 
     expect(core.debug).toHaveBeenCalledWith(`𐄂 ${paths[0]} is not valid`);
     expect(core.debug).toHaveBeenCalledWith(`✓ ${paths[1]} is valid`);
+  });
+
+  it('supports JSON Schema draft-04', async () => {
+    mockGetBooleanInput({});
+    mockGetInput({ schema });
+    mockGetMultilineInput({ files });
+
+    jest
+      .mocked(fs.readFile)
+      .mockResolvedValueOnce(
+        schemaContents.replace(
+          'http://json-schema.org/draft-07/schema#',
+          'http://json-schema.org/draft-04/schema#'
+        )
+      )
+      .mockResolvedValueOnce(instanceContents);
+    mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+    await main.run();
+    expect(runSpy).toHaveReturned();
+    expect(process.exitCode).not.toBeDefined();
+
+    expect(core.setOutput).toHaveBeenCalledTimes(1);
+    expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
   });
 });
