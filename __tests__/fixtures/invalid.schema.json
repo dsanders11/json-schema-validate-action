@@ -1,0 +1,11 @@
+{
+  "title": "Invalid JSON schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "foobar": {
+      "type": "string",
+      "minLength": "foo"
+    }
+  }
+}

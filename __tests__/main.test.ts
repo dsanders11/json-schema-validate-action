@@ -31,6 +31,12 @@ describe('action', () => {
       path.join(__dirname, 'fixtures', 'evm-config.schema.json'),
       'utf-8'
     );
+  const invalidSchemaContents: string = jest
+    .requireActual('node:fs')
+    .readFileSync(
+      path.join(__dirname, 'fixtures', 'invalid.schema.json'),
+      'utf-8'
+    );
   const instanceContents: string = jest
     .requireActual('node:fs')
     .readFileSync(path.join(__dirname, 'fixtures', 'evm-config.yml'), 'utf-8');
@@ -418,5 +424,71 @@ describe('action', () => {
 
     expect(core.setOutput).toHaveBeenCalledTimes(1);
     expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+  });
+
+  describe('can validate schemas', () => {
+    beforeEach(() => {
+      mockGetBooleanInput({});
+      mockGetInput({ schema: 'json-schema' });
+      mockGetMultilineInput({ files });
+
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+    });
+
+    it('which are valid', async () => {
+      jest.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('which are invalid', async () => {
+      mockGetBooleanInput({ 'fail-on-invalid': false });
+
+      jest.mocked(fs.readFile).mockResolvedValueOnce(invalidSchemaContents);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    });
+
+    it('using JSON Schema draft-04', async () => {
+      jest
+        .mocked(fs.readFile)
+        .mockResolvedValueOnce(
+          schemaContents.replace(
+            'http://json-schema.org/draft-07/schema#',
+            'http://json-schema.org/draft-04/schema#'
+          )
+        );
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('but fails if $schema key is missing', async () => {
+      jest
+        .mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents.replace('$schema', '_schema'));
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        'JSON schema missing $schema key'
+      );
+    });
   });
 });

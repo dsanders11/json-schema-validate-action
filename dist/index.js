@@ -89626,6 +89626,17 @@ const _2019_1 = __importDefault(__nccwpck_require__(5988));
 const ajv_draft_04_1 = __importDefault(__nccwpck_require__(7023));
 const ajv_formats_1 = __importDefault(__nccwpck_require__(567));
 const yaml = __importStar(__nccwpck_require__(4083));
+function newAjv(schema) {
+    const draft04Schema = schema.$schema === 'http://json-schema.org/draft-04/schema#';
+    const ajv = (0, ajv_formats_1.default)(draft04Schema ? new ajv_draft_04_1.default() : new _2019_1.default());
+    if (!draft04Schema) {
+        /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+        ajv.addMetaSchema(__nccwpck_require__(18));
+        ajv.addMetaSchema(__nccwpck_require__(98));
+        /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    }
+    return ajv;
+}
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -89636,7 +89647,6 @@ async function run() {
         const files = core.getMultilineInput('files', { required: true });
         const cacheRemoteSchema = core.getBooleanInput('cache-remote-schema');
         const failOnInvalid = core.getBooleanInput('fail-on-invalid');
-        // TODO - Handle special case where schemaPath === 'json-schema', then use ajv.validateSchema
         // Fetch and cache remote schemas
         if (schemaPath.startsWith('http://') || schemaPath.startsWith('https://')) {
             const schemaUrl = schemaPath;
@@ -89674,34 +89684,46 @@ async function run() {
                 }
             }
         }
-        // Load and compile the schema
-        const schema = JSON.parse(await fs.readFile(schemaPath, 'utf-8'));
-        if (typeof schema.$schema !== 'string') {
-            core.setFailed('JSON schema missing $schema key');
-            return;
+        const validatingSchema = schemaPath === 'json-schema';
+        let validate;
+        if (validatingSchema) {
+            validate = async (data) => {
+                // Create a new Ajv instance per-schema since
+                // they may require different draft versions
+                const ajv = newAjv(data);
+                await ajv.validateSchema(data);
+                return ajv.errors || [];
+            };
         }
-        const draft04Schema = schema.$schema === 'http://json-schema.org/draft-04/schema#';
-        const ajv = draft04Schema ? new ajv_draft_04_1.default() : new _2019_1.default();
-        if (!draft04Schema) {
-            /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
-            ajv.addMetaSchema(__nccwpck_require__(18));
-            ajv.addMetaSchema(__nccwpck_require__(98));
-            /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+        else {
+            // Load and compile the schema
+            const schema = JSON.parse(await fs.readFile(schemaPath, 'utf-8'));
+            if (typeof schema.$schema !== 'string') {
+                core.setFailed('JSON schema missing $schema key');
+                return;
+            }
+            const ajv = newAjv(schema);
+            validate = async (data) => {
+                ajv.validate(schema, data);
+                return ajv.errors || [];
+            };
         }
-        const validate = (0, ajv_formats_1.default)(ajv).compile(schema);
         let valid = true;
         let filesValidated = false;
         const globber = await glob.create(files.join('\n'));
         for await (const file of globber.globGenerator()) {
             filesValidated = true;
             const instance = yaml.parse(await fs.readFile(file, 'utf-8'));
-            if (!validate(instance)) {
+            if (validatingSchema && typeof instance.$schema !== 'string') {
+                core.setFailed('JSON schema missing $schema key');
+                return;
+            }
+            const errors = await validate(instance);
+            if (errors.length) {
                 valid = false;
                 core.debug(`𐄂 ${file} is not valid`);
-                if (validate.errors) {
-                    for (const error of validate.errors) {
-                        core.error(JSON.stringify(error, null, 4));
-                    }
+                for (const error of errors) {
+                    core.error(JSON.stringify(error, null, 4));
                 }
             }
             else {

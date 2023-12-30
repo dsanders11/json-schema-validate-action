@@ -7,10 +7,27 @@ import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as http from '@actions/http-client';
 
-import Ajv2019 from 'ajv/dist/2019';
+import type { default as Ajv } from 'ajv';
+import { default as Ajv2019, ErrorObject } from 'ajv/dist/2019';
 import AjvDraft04 from 'ajv-draft-04';
 import AjvFormats from 'ajv-formats';
 import * as yaml from 'yaml';
+
+function newAjv(schema: Record<string, unknown>): Ajv {
+  const draft04Schema =
+    schema.$schema === 'http://json-schema.org/draft-04/schema#';
+
+  const ajv = AjvFormats(draft04Schema ? new AjvDraft04() : new Ajv2019());
+
+  if (!draft04Schema) {
+    /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
+    ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
+    /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+  }
+
+  return ajv;
+}
 
 /**
  * The main function for the action.
@@ -72,29 +89,39 @@ export async function run(): Promise<void> {
       }
     }
 
-    // Load and compile the schema
-    const schema: Record<string, unknown> = JSON.parse(
-      await fs.readFile(schemaPath, 'utf-8')
-    );
+    const validatingSchema = schemaPath === 'json-schema';
 
-    if (typeof schema.$schema !== 'string') {
-      core.setFailed('JSON schema missing $schema key');
-      return;
+    let validate: (
+      data: Record<string, unknown>
+    ) => Promise<ErrorObject<string, Record<string, unknown>, unknown>[]>;
+
+    if (validatingSchema) {
+      validate = async (data: Record<string, unknown>) => {
+        // Create a new Ajv instance per-schema since
+        // they may require different draft versions
+        const ajv = newAjv(data);
+
+        await ajv.validateSchema(data);
+        return ajv.errors || [];
+      };
+    } else {
+      // Load and compile the schema
+      const schema: Record<string, unknown> = JSON.parse(
+        await fs.readFile(schemaPath, 'utf-8')
+      );
+
+      if (typeof schema.$schema !== 'string') {
+        core.setFailed('JSON schema missing $schema key');
+        return;
+      }
+
+      const ajv = newAjv(schema);
+
+      validate = async (data: object) => {
+        ajv.validate(schema, data);
+        return ajv.errors || [];
+      };
     }
-
-    const draft04Schema =
-      schema.$schema === 'http://json-schema.org/draft-04/schema#';
-
-    const ajv = draft04Schema ? new AjvDraft04() : new Ajv2019();
-
-    if (!draft04Schema) {
-      /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
-      ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
-      ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
-      /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
-    }
-
-    const validate = AjvFormats(ajv).compile(schema);
 
     let valid = true;
     let filesValidated = false;
@@ -103,16 +130,22 @@ export async function run(): Promise<void> {
 
     for await (const file of globber.globGenerator()) {
       filesValidated = true;
+
       const instance = yaml.parse(await fs.readFile(file, 'utf-8'));
 
-      if (!validate(instance)) {
+      if (validatingSchema && typeof instance.$schema !== 'string') {
+        core.setFailed('JSON schema missing $schema key');
+        return;
+      }
+
+      const errors = await validate(instance);
+
+      if (errors.length) {
         valid = false;
         core.debug(`𐄂 ${file} is not valid`);
 
-        if (validate.errors) {
-          for (const error of validate.errors) {
-            core.error(JSON.stringify(error, null, 4));
-          }
+        for (const error of errors) {
+          core.error(JSON.stringify(error, null, 4));
         }
       } else {
         core.debug(`✓ ${file} is valid`);

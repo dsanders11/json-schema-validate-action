@@ -31,6 +31,11 @@ jobs:
           files: .github/workflows/**.yml 
 ```
 
+### Validating Schema
+
+Schemas can be validated by setting the `schema` input to the string literal
+`json-schema`.
+
 ### Remote Schema Cache Busting
 
 By default the action will cache remote schemas (this can be disabled via the
