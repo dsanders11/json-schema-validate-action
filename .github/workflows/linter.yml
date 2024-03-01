@@ -23,7 +23,7 @@ jobs:
 
       - name: Setup Node.js
         id: setup-node
-        uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
           node-version: 20
           cache: npm
@@ -34,7 +34,7 @@ jobs:
 
       - name: Lint Codebase
         id: super-linter
-        uses: super-linter/super-linter/slim@ff5037c06042e564803502feb97f8a686f3b0171 # v6.0.0
+        uses: super-linter/super-linter/slim@e0fc164bba85f4b58c6cd17ba1dfd435d01e8a06 # v6.3.0
         env:
           DEFAULT_BRANCH: main
           FILTER_REGEX_EXCLUDE: dist/**/*
