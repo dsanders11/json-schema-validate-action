@@ -111,7 +111,12 @@ export async function run(): Promise<void> {
       );
 
       if (typeof schema.$schema !== 'string') {
-        core.setFailed('JSON schema missing $schema key');
+        core.error(`Error while validating schema: ${schemaPath}`);
+        core.error('JSON schema missing $schema key', {
+          title: 'JSON Schema Validation Error',
+          file: schemaPath
+        });
+        process.exitCode = 1;
         return;
       }
 
@@ -134,7 +139,12 @@ export async function run(): Promise<void> {
       const instance = yaml.parse(await fs.readFile(file, 'utf-8'));
 
       if (validatingSchema && typeof instance.$schema !== 'string') {
-        core.setFailed('JSON schema missing $schema key');
+        core.error(`Error while validating schema: ${file}`);
+        core.error('JSON schema missing $schema key', {
+          title: 'JSON Schema Validation Error',
+          file
+        });
+        process.exitCode = 1;
         return;
       }
 
@@ -145,7 +155,11 @@ export async function run(): Promise<void> {
         core.debug(`𐄂 ${file} is not valid`);
 
         for (const error of errors) {
-          core.error(JSON.stringify(error, null, 4));
+          core.error(`Error while validating file: ${file}`);
+          core.error(JSON.stringify(error, null, 4), {
+            title: 'JSON Schema Validation Error',
+            file
+          });
         }
       } else {
         core.debug(`✓ ${file} is valid`);
