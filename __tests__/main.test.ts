@@ -1,3 +1,5 @@
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -13,40 +15,43 @@ import {
   mockHttpGet
 } from './utils';
 
-jest.mock('@actions/cache');
-jest.mock('@actions/core');
-jest.mock('node:fs/promises');
+vi.mock('@actions/cache');
+vi.mock('@actions/core');
+vi.mock('node:fs/promises');
 
 // Spy the action's entrypoint
-const runSpy = jest.spyOn(main, 'run');
+const runSpy = vi.spyOn(main, 'run');
+
+let schemaContents: string;
+let invalidSchemaContents: string;
+let instanceContents: string;
 
 describe('action', () => {
   const schema = '/foo/bar';
   const remoteSchema = 'https://foo.bar/schema.json';
   const files = ['/foo/bar/baz/**.yml'];
 
-  const schemaContents: string = jest
-    .requireActual('node:fs')
-    .readFileSync(
+  beforeAll(async () => {
+    // jest.mocked(core.debug).mockImplementation(console.debug);
+
+    const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs');
+
+    schemaContents = actualFs.readFileSync(
       path.join(__dirname, 'fixtures', 'evm-config.schema.json'),
       'utf-8'
     );
-  const invalidSchemaContents: string = jest
-    .requireActual('node:fs')
-    .readFileSync(
+    invalidSchemaContents = actualFs.readFileSync(
       path.join(__dirname, 'fixtures', 'invalid.schema.json'),
       'utf-8'
     );
-  const instanceContents: string = jest
-    .requireActual('node:fs')
-    .readFileSync(path.join(__dirname, 'fixtures', 'evm-config.yml'), 'utf-8');
-
-  beforeAll(() => {
-    // jest.mocked(core.debug).mockImplementation(console.debug);
+    instanceContents = actualFs.readFileSync(
+      path.join(__dirname, 'fixtures', 'evm-config.yml'),
+      'utf-8'
+    );
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.exitCode = undefined;
   });
 
@@ -85,7 +90,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest.mocked(fs.readFile).mockImplementation(() => {
+    vi.mocked(fs.readFile).mockImplementation(() => {
       throw new Error('File read error');
     });
 
@@ -102,7 +107,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest.mocked(fs.readFile).mockImplementation(() => {
+    vi.mocked(fs.readFile).mockImplementation(() => {
       throw 42; // eslint-disable-line no-throw-literal
     });
 
@@ -119,7 +124,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+    vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
 
     await main.run();
     expect(runSpy).toHaveReturned();
@@ -133,7 +138,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+    vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
 
     await main.run();
     expect(runSpy).toHaveReturned();
@@ -148,7 +153,7 @@ describe('action', () => {
     mockGetInput({ schema: remoteSchema });
     mockGetMultilineInput({ files });
 
-    jest.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
+    vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
     const httpGetSpy = mockHttpGet(schemaContents);
 
     await main.run();
@@ -181,7 +186,7 @@ describe('action', () => {
     mockGetInput({ schema: remoteSchema });
     mockGetMultilineInput({ files });
 
-    jest.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
+    vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
     const httpGetSpy = mockHttpGet(schemaContents);
 
     await main.run();
@@ -192,7 +197,7 @@ describe('action', () => {
 
     // Confirm cache calls use the same paths and key
     expect(cache.restoreCache).toHaveBeenCalledTimes(1);
-    const [paths, key] = jest.mocked(cache.restoreCache).mock.calls[0];
+    const [paths, key] = vi.mocked(cache.restoreCache).mock.calls[0];
     expect(cache.saveCache).toHaveBeenCalledTimes(1);
     expect(cache.saveCache).toHaveBeenLastCalledWith(paths, key);
   });
@@ -202,7 +207,7 @@ describe('action', () => {
     mockGetInput({ schema: remoteSchema });
     mockGetMultilineInput({ files });
 
-    jest.spyOn(cache, 'restoreCache').mockResolvedValue('cache-key');
+    vi.spyOn(cache, 'restoreCache').mockResolvedValue('cache-key');
     const httpGetSpy = mockHttpGet(schemaContents);
 
     await main.run();
@@ -217,7 +222,7 @@ describe('action', () => {
     mockGetInput({ schema: remoteSchema });
     mockGetMultilineInput({ files });
 
-    jest.spyOn(cache, 'restoreCache').mockResolvedValue('cache-key');
+    vi.spyOn(cache, 'restoreCache').mockResolvedValue('cache-key');
     mockHttpGet(schemaContents);
 
     await main.run();
@@ -250,7 +255,7 @@ describe('action', () => {
       mockGetInput({ schema: remoteSchema });
       mockGetMultilineInput({ files });
 
-      jest.spyOn(cache, 'restoreCache').mockImplementation(async () => {
+      vi.spyOn(cache, 'restoreCache').mockImplementation(async () => {
         throw error;
       });
 
@@ -272,8 +277,8 @@ describe('action', () => {
       mockGetInput({ schema: remoteSchema });
       mockGetMultilineInput({ files });
 
-      jest.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
-      jest.spyOn(cache, 'saveCache').mockImplementation(async () => {
+      vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
+      vi.spyOn(cache, 'saveCache').mockImplementation(async () => {
         throw error;
       });
 
@@ -294,9 +299,9 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest
-      .mocked(fs.readFile)
-      .mockResolvedValueOnce(schemaContents.replace('$schema', '_schema'));
+    vi.mocked(fs.readFile).mockResolvedValueOnce(
+      schemaContents.replace('$schema', '_schema')
+    );
 
     await main.run();
     expect(runSpy).toHaveReturned();
@@ -312,7 +317,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+    vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
 
     await main.run();
     expect(runSpy).toHaveReturned();
@@ -326,8 +331,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest
-      .mocked(fs.readFile)
+    vi.mocked(fs.readFile)
       .mockResolvedValueOnce(schemaContents)
       .mockResolvedValueOnce(instanceContents);
     mockGlobGenerator(['/foo/bar/baz/config.yml']);
@@ -345,8 +349,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest
-      .mocked(fs.readFile)
+    vi.mocked(fs.readFile)
       .mockResolvedValueOnce(schemaContents)
       .mockResolvedValueOnce('invalid content')
       .mockResolvedValueOnce(instanceContents);
@@ -365,8 +368,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest
-      .mocked(fs.readFile)
+    vi.mocked(fs.readFile)
       .mockResolvedValueOnce(schemaContents)
       .mockResolvedValueOnce('invalid content')
       .mockResolvedValueOnce(instanceContents);
@@ -387,8 +389,7 @@ describe('action', () => {
 
     const paths = ['/foo/bar/baz/config.yml', '/foo/bar/baz/e/config.yml'];
 
-    jest
-      .mocked(fs.readFile)
+    vi.mocked(fs.readFile)
       .mockResolvedValueOnce(schemaContents)
       .mockResolvedValueOnce('invalid content')
       .mockResolvedValueOnce(instanceContents);
@@ -407,8 +408,7 @@ describe('action', () => {
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
-    jest
-      .mocked(fs.readFile)
+    vi.mocked(fs.readFile)
       .mockResolvedValueOnce(
         schemaContents.replace(
           'http://json-schema.org/draft-07/schema#',
@@ -436,7 +436,7 @@ describe('action', () => {
     });
 
     it('which are valid', async () => {
-      jest.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+      vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
 
       await main.run();
       expect(runSpy).toHaveReturned();
@@ -449,7 +449,7 @@ describe('action', () => {
     it('which are invalid', async () => {
       mockGetBooleanInput({ 'fail-on-invalid': false });
 
-      jest.mocked(fs.readFile).mockResolvedValueOnce(invalidSchemaContents);
+      vi.mocked(fs.readFile).mockResolvedValueOnce(invalidSchemaContents);
 
       await main.run();
       expect(runSpy).toHaveReturned();
@@ -460,14 +460,12 @@ describe('action', () => {
     });
 
     it('using JSON Schema draft-04', async () => {
-      jest
-        .mocked(fs.readFile)
-        .mockResolvedValueOnce(
-          schemaContents.replace(
-            'http://json-schema.org/draft-07/schema#',
-            'http://json-schema.org/draft-04/schema#'
-          )
-        );
+      vi.mocked(fs.readFile).mockResolvedValueOnce(
+        schemaContents.replace(
+          'http://json-schema.org/draft-07/schema#',
+          'http://json-schema.org/draft-04/schema#'
+        )
+      );
 
       await main.run();
       expect(runSpy).toHaveReturned();
@@ -478,9 +476,9 @@ describe('action', () => {
     });
 
     it('but fails if $schema key is missing', async () => {
-      jest
-        .mocked(fs.readFile)
-        .mockResolvedValueOnce(schemaContents.replace('$schema', '_schema'));
+      vi.mocked(fs.readFile).mockResolvedValueOnce(
+        schemaContents.replace('$schema', '_schema')
+      );
 
       await main.run();
       expect(runSpy).toHaveReturned();
