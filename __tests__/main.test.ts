@@ -524,6 +524,38 @@ describe('action', () => {
       expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
     });
 
+    it('using JSON Schema draft-2019-09', async () => {
+      vi.mocked(fs.readFile).mockResolvedValueOnce(
+        schemaContents.replace(
+          'http://json-schema.org/draft-07/schema#',
+          'https://json-schema.org/draft/2019-09/schema'
+        )
+      );
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('using JSON Schema draft-2020-12', async () => {
+      vi.mocked(fs.readFile).mockResolvedValueOnce(
+        schemaContents.replace(
+          'http://json-schema.org/draft-07/schema#',
+          'https://json-schema.org/draft/2020-12/schema'
+        )
+      );
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
     it('but fails if $schema key is missing', async () => {
       vi.mocked(fs.readFile).mockResolvedValueOnce(
         schemaContents.replace('$schema', '_schema')

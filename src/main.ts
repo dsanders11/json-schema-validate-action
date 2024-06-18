@@ -7,8 +7,9 @@ import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as http from '@actions/http-client';
 
-import type { default as Ajv } from 'ajv';
-import { default as Ajv2019, ErrorObject } from 'ajv/dist/2019';
+import type { default as Ajv, ErrorObject } from 'ajv';
+import { default as Ajv2019 } from 'ajv/dist/2019';
+import { default as Ajv2020 } from 'ajv/dist/2020';
 import AjvDraft04 from 'ajv-draft-04';
 import AjvFormats from 'ajv-formats';
 import * as yaml from 'yaml';
@@ -16,10 +17,18 @@ import * as yaml from 'yaml';
 function newAjv(schema: Record<string, unknown>): Ajv {
   const draft04Schema =
     schema.$schema === 'http://json-schema.org/draft-04/schema#';
+  const draft2020Schema =
+    schema.$schema === 'https://json-schema.org/draft/2020-12/schema';
 
-  const ajv = AjvFormats(draft04Schema ? new AjvDraft04() : new Ajv2019());
+  const ajv = AjvFormats(
+    draft04Schema
+      ? new AjvDraft04()
+      : draft2020Schema
+        ? new Ajv2020()
+        : new Ajv2019()
+  );
 
-  if (!draft04Schema) {
+  if (!draft04Schema && !draft2020Schema) {
     /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
     ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
     ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
