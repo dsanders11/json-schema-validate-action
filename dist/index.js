@@ -89913,7 +89913,12 @@ async function run() {
             // Load and compile the schema
             const schema = JSON.parse(await fs.readFile(schemaPath, 'utf-8'));
             if (typeof schema.$schema !== 'string') {
-                core.setFailed('JSON schema missing $schema key');
+                core.error(`Error while validating schema: ${schemaPath}`);
+                core.error('JSON schema missing $schema key', {
+                    title: 'JSON Schema Validation Error',
+                    file: schemaPath
+                });
+                process.exitCode = 1;
                 return;
             }
             const ajv = newAjv(schema);
@@ -89929,7 +89934,12 @@ async function run() {
             filesValidated = true;
             const instance = yaml.parse(await fs.readFile(file, 'utf-8'));
             if (validatingSchema && typeof instance.$schema !== 'string') {
-                core.setFailed('JSON schema missing $schema key');
+                core.error(`Error while validating schema: ${file}`);
+                core.error('JSON schema missing $schema key', {
+                    title: 'JSON Schema Validation Error',
+                    file
+                });
+                process.exitCode = 1;
                 return;
             }
             const errors = await validate(instance);
@@ -89937,7 +89947,11 @@ async function run() {
                 valid = false;
                 core.debug(`𐄂 ${file} is not valid`);
                 for (const error of errors) {
-                    core.error(JSON.stringify(error, null, 4));
+                    core.error(`Error while validating file: ${file}`);
+                    core.error(JSON.stringify(error, null, 4), {
+                        title: 'JSON Schema Validation Error',
+                        file
+                    });
                 }
             }
             else {

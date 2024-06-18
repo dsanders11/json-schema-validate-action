@@ -305,10 +305,14 @@ describe('action', () => {
 
     await main.run();
     expect(runSpy).toHaveReturned();
-    expect(process.exitCode).not.toBeDefined();
+    expect(process.exitCode).toEqual(1);
 
-    expect(core.setFailed).toHaveBeenLastCalledWith(
-      'JSON schema missing $schema key'
+    expect(core.error).toHaveBeenLastCalledWith(
+      'JSON schema missing $schema key',
+      {
+        title: 'JSON Schema Validation Error',
+        file: '/foo/bar'
+      }
     );
   });
 
@@ -358,6 +362,29 @@ describe('action', () => {
     await main.run();
     expect(runSpy).toHaveReturned();
     expect(process.exitCode).toEqual(1);
+
+    expect(core.error).toHaveBeenCalledWith(
+      'Error while validating file: /foo/bar/baz/config.yml'
+    );
+    expect(core.error).toHaveBeenLastCalledWith(
+      JSON.stringify(
+        {
+          instancePath: '',
+          schemaPath: '#/oneOf',
+          keyword: 'oneOf',
+          params: {
+            passingSchemas: [0, 1]
+          },
+          message: 'must match exactly one schema in oneOf'
+        },
+        null,
+        4
+      ),
+      {
+        title: 'JSON Schema Validation Error',
+        file: '/foo/bar/baz/config.yml'
+      }
+    );
 
     expect(core.setOutput).toHaveBeenCalledTimes(1);
     expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
@@ -447,14 +474,36 @@ describe('action', () => {
     });
 
     it('which are invalid', async () => {
-      mockGetBooleanInput({ 'fail-on-invalid': false });
+      mockGetBooleanInput({ 'fail-on-invalid': true });
 
       vi.mocked(fs.readFile).mockResolvedValueOnce(invalidSchemaContents);
 
       await main.run();
       expect(runSpy).toHaveReturned();
-      expect(process.exitCode).not.toBeDefined();
+      expect(process.exitCode).toEqual(1);
 
+      expect(core.error).toHaveBeenCalledWith(
+        'Error while validating file: /foo/bar/baz/config.yml'
+      );
+      expect(core.error).toHaveBeenLastCalledWith(
+        JSON.stringify(
+          {
+            instancePath: '/properties/foobar/minLength',
+            schemaPath: '#/definitions/nonNegativeInteger/type',
+            keyword: 'type',
+            params: {
+              type: 'integer'
+            },
+            message: 'must be integer'
+          },
+          null,
+          4
+        ),
+        {
+          title: 'JSON Schema Validation Error',
+          file: '/foo/bar/baz/config.yml'
+        }
+      );
       expect(core.setOutput).toHaveBeenCalledTimes(1);
       expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
     });
@@ -482,10 +531,14 @@ describe('action', () => {
 
       await main.run();
       expect(runSpy).toHaveReturned();
-      expect(process.exitCode).not.toBeDefined();
+      expect(process.exitCode).toEqual(1);
 
-      expect(core.setFailed).toHaveBeenLastCalledWith(
-        'JSON schema missing $schema key'
+      expect(core.error).toHaveBeenLastCalledWith(
+        'JSON schema missing $schema key',
+        {
+          title: 'JSON Schema Validation Error',
+          file: '/foo/bar/baz/config.yml'
+        }
       );
     });
   });
