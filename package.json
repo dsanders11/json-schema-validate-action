@@ -34,7 +34,7 @@
     "package:watch": "npm run package -- --watch",
     "test": "vitest run --coverage --reporter=verbose",
     "all": "npm run format:write && npm run lint && npm run test && npm run package",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "license": "MIT",
   "dependencies": {
