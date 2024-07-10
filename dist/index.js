@@ -89955,7 +89955,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = void 0;
+exports.run = run;
 const node_crypto_1 = __nccwpck_require__(6005);
 const fs = __importStar(__nccwpck_require__(3977));
 const path = __importStar(__nccwpck_require__(9411));
@@ -90107,7 +90107,6 @@ async function run() {
         core.setFailed(error instanceof Error ? error.message : JSON.stringify(error));
     }
 }
-exports.run = run;
 
 
 /***/ }),
