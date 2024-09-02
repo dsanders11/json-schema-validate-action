@@ -28,19 +28,13 @@
     "goma": {
       "description": "Goma mode to use",
       "type": "string",
-      "enum": [
-        "cache-only",
-        "cluster",
-        "none"
-      ],
+      "enum": ["cache-only", "cluster", "none"],
       "default": "cache-only"
     },
     "gomaSource": {
       "description": "Goma client is from a non-default source",
       "type": "string",
-      "enum": [
-        "msft"
-      ]
+      "enum": ["msft"]
     },
     "root": {
       "description": "Path of the top directory. Home of the .gclient file",
@@ -83,15 +77,11 @@
             }
           },
           "additionalProperties": false,
-          "required": [
-            "origin"
-          ]
+          "required": ["origin"]
         }
       },
       "additionalProperties": false,
-      "required": [
-        "electron"
-      ]
+      "required": ["electron"]
     },
     "gen": {
       "description": "Configuration for GN",
@@ -112,10 +102,7 @@
         }
       },
       "additionalProperties": false,
-      "required": [
-        "args",
-        "out"
-      ]
+      "required": ["args", "out"]
     },
     "env": {
       "description": "Environment variables set when building Electron",
@@ -132,27 +119,19 @@
           "minLength": 1
         }
       },
-      "required": [
-        "CHROMIUM_BUILDTOOLS_PATH"
-      ]
+      "required": ["CHROMIUM_BUILDTOOLS_PATH"]
     },
     "configValidationLevel": {
       "description": "Validation level for this configuration",
       "type": "string",
-      "enum": [
-        "strict",
-        "warn",
-        "none"
-      ],
+      "enum": ["strict", "warn", "none"],
       "default": "strict"
     }
   },
   "additionalProperties": false,
   "oneOf": [
     {
-      "required": [
-        "extends"
-      ]
+      "required": ["extends"]
     },
     {
       "properties": {
@@ -161,19 +140,10 @@
           "pattern": "chrome"
         }
       },
-      "required": [
-        "defaultTarget",
-        "env",
-        "root"
-      ]
+      "required": ["defaultTarget", "env", "root"]
     },
     {
-      "required": [
-        "root",
-        "remotes",
-        "gen",
-        "env"
-      ]
+      "required": ["root", "remotes", "gen", "env"]
     }
   ]
 }

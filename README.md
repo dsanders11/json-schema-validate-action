@@ -28,7 +28,7 @@ jobs:
         uses: dsanders11/json-schema-validate-action
         with:
           schema: https://json.schemastore.org/github-workflow.json
-          files: .github/workflows/**.yml 
+          files: .github/workflows/**.yml
 ```
 
 ### Validating Schema
@@ -49,8 +49,8 @@ simply set a URL fragment (e.g. `#bust-cache`) on the schema URL.
   globs
 - `fail-on-invalid` - Whether or not to set action failure if a file is invalid
   (default: `true`)
-- `cache-remote-schema` - Whether or not to cache the schema if remote
-  (default: `true`)
+- `cache-remote-schema` - Whether or not to cache the schema if remote (default:
+  `true`)
 
 ### Outputs
 
