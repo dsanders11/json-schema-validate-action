@@ -19,10 +19,13 @@ jobs:
     steps:
       - name: Check for any changed workflows
         id: check-for-changed-workflows
-        uses: tj-actions/changed-files@v41
-        with:
-          files: |
-            .github/workflows/**.yml
+        run: |
+          CHANGED_WORKFLOWS=$(gh api repos/${{ github.event.pull_request.base.repo.full_name }}/pulls/${{ github.event.pull_request.number }}/files --jq '.[] | select((.filename | match("^.github/workflows/.*.yml$")) and (.status != "removed")) | .filename')
+          if [[ -n "$CHANGED_WORKFLOWS" ]]; then
+            echo "any_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "any_changed=false" >> $GITHUB_OUTPUT
+          fi
       - name: Validate workflows
         if: steps.check-for-changed-workflows.outputs.any_changed == 'true'
         uses: dsanders11/json-schema-validate-action
