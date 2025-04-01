@@ -2,6 +2,9 @@
 MD004:
   style: dash
 
+MD013:
+  ignore_code_blocks: true
+
 # Ordered list item prefix
 MD029:
   style: one
