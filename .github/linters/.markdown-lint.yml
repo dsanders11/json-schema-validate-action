@@ -3,7 +3,7 @@ MD004:
   style: dash
 
 MD013:
-  ignore_code_blocks: true
+  code_blocks: false
 
 # Ordered list item prefix
 MD029:
