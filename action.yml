@@ -21,6 +21,10 @@ inputs:
     description: Whether or not to cache the schema if remote
     required: false
     default: true
+  all-errors:
+    description: Report all errors instead of stopping at the first
+    required: false
+    default: false
 
 outputs:
   valid:

@@ -28,7 +28,7 @@ jobs:
           fi
       - name: Validate workflows
         if: steps.check-for-changed-workflows.outputs.any_changed == 'true'
-        uses: dsanders11/json-schema-validate-action@1.2.1
+        uses: dsanders11/json-schema-validate-action@v1.3.0
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/**.yml
@@ -54,6 +54,8 @@ simply set a URL fragment (e.g. `#bust-cache`) on the schema URL.
   (default: `true`)
 - `cache-remote-schema` - Whether or not to cache the schema if remote (default:
   `true`)
+- `all-errors` - Whether to report all errors or stop after the first (default:
+  `false`)
 
 ### Outputs
 

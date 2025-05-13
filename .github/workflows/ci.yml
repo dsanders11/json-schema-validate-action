@@ -51,6 +51,7 @@ jobs:
           schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
           files: .github/workflows/ci.yml
           fail-on-invalid: false
+          all-errors: true
       - name: Test Local Action (Multiple File Valid)
         id: multiple-file-valid
         uses: ./
@@ -65,6 +66,7 @@ jobs:
           schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
           files: .github/workflows/**.yml
           fail-on-invalid: false
+          all-errors: true
       - name: Confirm Output
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
