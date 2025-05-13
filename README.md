@@ -28,7 +28,7 @@ jobs:
           fi
       - name: Validate workflows
         if: steps.check-for-changed-workflows.outputs.any_changed == 'true'
-        uses: dsanders11/json-schema-validate-action@1.2.0
+        uses: dsanders11/json-schema-validate-action@1.2.1
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/**.yml
