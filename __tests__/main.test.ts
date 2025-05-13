@@ -405,6 +405,7 @@ describe('action', () => {
     expect(runSpy).toHaveReturned();
     expect(process.exitCode).not.toBeDefined();
 
+    expect(core.error).toHaveBeenCalledTimes(2);
     expect(core.setOutput).toHaveBeenCalledTimes(1);
     expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
   });
@@ -451,6 +452,26 @@ describe('action', () => {
 
     expect(core.setOutput).toHaveBeenCalledTimes(1);
     expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+  });
+
+  it('reports all errors if all-errors input is true', async () => {
+    mockGetBooleanInput({ 'all-errors': true, 'fail-on-invalid': false });
+    mockGetInput({ schema });
+    mockGetMultilineInput({ files });
+
+    vi.mocked(fs.readFile)
+      .mockResolvedValueOnce(schemaContents)
+      .mockResolvedValueOnce('invalid content')
+      .mockResolvedValueOnce(instanceContents);
+    mockGlobGenerator(['/foo/bar/baz/config.yml', '/foo/bar/baz/e/config.yml']);
+
+    await main.run();
+    expect(runSpy).toHaveReturned();
+    expect(process.exitCode).not.toBeDefined();
+
+    expect(core.error).toHaveBeenCalledTimes(4);
+    expect(core.setOutput).toHaveBeenCalledTimes(1);
+    expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
   });
 
   describe('can validate schemas', () => {

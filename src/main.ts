@@ -7,14 +7,14 @@ import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as http from '@actions/http-client';
 
-import type { default as Ajv, ErrorObject } from 'ajv';
+import type { default as Ajv, ErrorObject, Options } from 'ajv';
 import { default as Ajv2019 } from 'ajv/dist/2019';
 import { default as Ajv2020 } from 'ajv/dist/2020';
 import AjvDraft04 from 'ajv-draft-04';
 import AjvFormats from 'ajv-formats';
 import * as yaml from 'yaml';
 
-function newAjv(schema: Record<string, unknown>): Ajv {
+function newAjv(schema: Record<string, unknown>, options: Options): Ajv {
   const draft04Schema =
     schema.$schema === 'http://json-schema.org/draft-04/schema#';
   const draft2020Schema =
@@ -22,10 +22,10 @@ function newAjv(schema: Record<string, unknown>): Ajv {
 
   const ajv = AjvFormats(
     draft04Schema
-      ? new AjvDraft04()
+      ? new AjvDraft04(options)
       : draft2020Schema
-        ? new Ajv2020()
-        : new Ajv2019()
+        ? new Ajv2020(options)
+        : new Ajv2019(options)
   );
 
   if (!draft04Schema && !draft2020Schema) {
@@ -46,6 +46,7 @@ export async function run(): Promise<void> {
   try {
     let schemaPath = core.getInput('schema', { required: true });
     const files = core.getMultilineInput('files', { required: true });
+    const allErrors = core.getBooleanInput('all-errors');
     const cacheRemoteSchema = core.getBooleanInput('cache-remote-schema');
     const failOnInvalid = core.getBooleanInput('fail-on-invalid');
 
@@ -108,7 +109,7 @@ export async function run(): Promise<void> {
       validate = async (data: Record<string, unknown>) => {
         // Create a new Ajv instance per-schema since
         // they may require different draft versions
-        const ajv = newAjv(data);
+        const ajv = newAjv(data, { allErrors });
 
         await ajv.validateSchema(data);
         return ajv.errors || [];
@@ -129,7 +130,7 @@ export async function run(): Promise<void> {
         return;
       }
 
-      const ajv = newAjv(schema);
+      const ajv = newAjv(schema, { allErrors });
 
       validate = async (data: object) => {
         ajv.validate(schema, data);
