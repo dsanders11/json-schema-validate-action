@@ -595,4 +595,106 @@ describe('action', () => {
       );
     });
   });
+
+  describe('custom error messages', () => {
+    it('forces allErrors to true when custom-errors is enabled', async () => {
+      mockGetBooleanInput({ 'custom-errors': true, 'all-errors': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce('invalid content');
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      // Should report multiple errors even though all-errors was false
+      expect(core.error).toHaveBeenCalledTimes(4);
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    });
+
+    it('provides custom error messages when validation fails', async () => {
+      mockGetBooleanInput({ 'custom-errors': true, 'fail-on-invalid': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      // Create a schema with custom error messages
+      const customErrorSchemaContents = JSON.stringify({
+        title: 'Test schema with custom errors',
+        $schema: 'http://json-schema.org/draft-07/schema#',
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 1 }
+        },
+        required: ['name'],
+        errorMessage: {
+          properties: {
+            name: 'Name must be a non-empty string'
+          }
+        }
+      });
+
+      const invalidInstanceContents = JSON.stringify({ name: '' });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(customErrorSchemaContents)
+        .mockResolvedValueOnce(invalidInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).toEqual(1);
+
+      expect(core.error).toHaveBeenCalledWith(
+        'Error while validating file: /foo/bar/baz/config.yml'
+      );
+
+      // Check that we get our custom error message in the JSON output
+      const errorCalls = vi.mocked(core.error).mock.calls;
+      const hasCustomMessage = errorCalls.some(
+        call =>
+          typeof call[0] === 'string' &&
+          call[0].includes('Name must be a non-empty string')
+      );
+      expect(hasCustomMessage).toBe(true);
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    });
+
+    it('works without custom-errors when disabled', async () => {
+      mockGetBooleanInput({ 'custom-errors': false, 'fail-on-invalid': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce('invalid content');
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.error).toHaveBeenCalledWith(
+        'Error while validating file: /foo/bar/baz/config.yml'
+      );
+
+      // Should NOT have any custom error messages (no errorMessage keyword)
+      const errorCalls = vi.mocked(core.error).mock.calls;
+      const hasCustomErrors = errorCalls.some(
+        call =>
+          typeof call[0] === 'string' &&
+          call[0].includes('"keyword":"errorMessage"')
+      );
+      expect(hasCustomErrors).toBe(false);
+
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    });
+  });
 });

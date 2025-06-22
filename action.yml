@@ -25,6 +25,10 @@ inputs:
     description: Report all errors instead of stopping at the first
     required: false
     default: false
+  custom-errors:
+    description: Enable support for custom error messages using ajv-errors
+    required: false
+    default: false
 
 outputs:
   valid:
