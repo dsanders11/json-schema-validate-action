@@ -12,20 +12,28 @@ import { default as Ajv2019 } from 'ajv/dist/2019';
 import { default as Ajv2020 } from 'ajv/dist/2020';
 import AjvDraft04 from 'ajv-draft-04';
 import AjvFormats from 'ajv-formats';
+import AjvErrors from 'ajv-errors';
 import * as yaml from 'yaml';
 
-function newAjv(schema: Record<string, unknown>, options: Options): Ajv {
+function newAjv(
+  schema: Record<string, unknown>,
+  options: Options,
+  customErrors = false
+): Ajv {
   const draft04Schema =
     schema.$schema === 'http://json-schema.org/draft-04/schema#';
   const draft2020Schema =
     schema.$schema === 'https://json-schema.org/draft/2020-12/schema';
 
+  // When using ajv-errors, allErrors must be true
+  const ajvOptions = customErrors ? { ...options, allErrors: true } : options;
+
   const ajv = AjvFormats(
     draft04Schema
-      ? new AjvDraft04(options)
+      ? new AjvDraft04(ajvOptions)
       : draft2020Schema
-        ? new Ajv2020(options)
-        : new Ajv2019(options)
+        ? new Ajv2020(ajvOptions)
+        : new Ajv2019(ajvOptions)
   );
 
   if (!draft04Schema && !draft2020Schema) {
@@ -33,6 +41,11 @@ function newAjv(schema: Record<string, unknown>, options: Options): Ajv {
     ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
     ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
     /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+  }
+
+  // Add ajv-errors support if requested
+  if (customErrors) {
+    AjvErrors(ajv);
   }
 
   return ajv;
@@ -49,6 +62,7 @@ export async function run(): Promise<void> {
     const allErrors = core.getBooleanInput('all-errors');
     const cacheRemoteSchema = core.getBooleanInput('cache-remote-schema');
     const failOnInvalid = core.getBooleanInput('fail-on-invalid');
+    const customErrors = core.getBooleanInput('custom-errors');
 
     // Fetch and cache remote schemas
     if (schemaPath.startsWith('http://') || schemaPath.startsWith('https://')) {
@@ -109,7 +123,7 @@ export async function run(): Promise<void> {
       validate = async (data: Record<string, unknown>) => {
         // Create a new Ajv instance per-schema since
         // they may require different draft versions
-        const ajv = newAjv(data, { allErrors });
+        const ajv = newAjv(data, { allErrors }, customErrors);
 
         await ajv.validateSchema(data);
         return ajv.errors || [];
@@ -130,7 +144,7 @@ export async function run(): Promise<void> {
         return;
       }
 
-      const ajv = newAjv(schema, { allErrors });
+      const ajv = newAjv(schema, { allErrors }, customErrors);
 
       validate = async (data: object) => {
         ajv.validate(schema, data);
