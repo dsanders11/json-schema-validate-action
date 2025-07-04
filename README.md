@@ -28,7 +28,7 @@ jobs:
           fi
       - name: Validate workflows
         if: steps.check-for-changed-workflows.outputs.any_changed == 'true'
-        uses: dsanders11/json-schema-validate-action@v1.3.0
+        uses: dsanders11/json-schema-validate-action@v1.4.0
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/**.yml
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate config with custom errors
-        uses: dsanders11/json-schema-validate-action@v1.3.0
+        uses: dsanders11/json-schema-validate-action@v1.4.0
         with:
           schema: ./config.schema.json
           files: ./config/*.yml
