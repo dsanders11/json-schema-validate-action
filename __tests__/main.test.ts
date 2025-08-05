@@ -6,14 +6,14 @@ import * as path from 'node:path';
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 
-import * as main from '../src/main';
+import * as main from '../src/main.js';
 import {
   mockGetBooleanInput,
   mockGetInput,
   mockGetMultilineInput,
   mockGlobGenerator,
   mockHttpGet
-} from './utils';
+} from './utils.js';
 
 vi.mock('@actions/cache');
 vi.mock('@actions/core');
