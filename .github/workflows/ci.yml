@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -37,6 +39,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - name: Test Local Action (Single File Valid)
         id: single-file-valid
         uses: ./
@@ -69,14 +73,19 @@ jobs:
           all-errors: true
       - name: Confirm Output
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          SINGLE_FILE_VALID: ${{ steps.single-file-valid.outputs.valid }}
+          SINGLE_FILE_NOT_VALID: ${{ steps.single-file-not-valid.outputs.valid }}
+          MULTIPLE_FILE_VALID: ${{ steps.multiple-file-valid.outputs.valid }}
+          MULTIPLE_FILE_NOT_VALID: ${{ steps.multiple-file-not-valid.outputs.valid }}
         with:
           script: |
             const assert = require('node:assert');
 
-            assert.strictEqual(${{ steps.single-file-valid.outputs.valid }}, true, 'Expected output for single file valid to be true');
-            assert.strictEqual(${{ steps.single-file-not-valid.outputs.valid }}, false, 'Expected output for single file invalid to be false');
-            assert.strictEqual(${{ steps.multiple-file-valid.outputs.valid }}, true, 'Expected output for multiple file valid to be true');
-            assert.strictEqual(${{ steps.multiple-file-not-valid.outputs.valid }}, false, 'Expected output for multiple file invalid to be false');
+            assert.strictEqual(process.env.SINGLE_FILE_VALID, 'true', 'Expected output for single file valid to be true');
+            assert.strictEqual(process.env.SINGLE_FILE_NOT_VALID, 'false', 'Expected output for single file invalid to be false');
+            assert.strictEqual(process.env.MULTIPLE_FILE_VALID, 'true', 'Expected output for multiple file valid to be true');
+            assert.strictEqual(process.env.MULTIPLE_FILE_NOT_VALID, 'false', 'Expected output for multiple file invalid to be false');
 
   release:
     name: release
@@ -88,6 +97,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
