@@ -27,8 +27,8 @@
   "scripts": {
     "bundle": "npm run format:write && npm run package",
     "ci-test": "vitest run --coverage --reporter=verbose",
-    "format:write": "npx prettier --write .",
-    "format:check": "npx prettier --check .",
+    "format:write": "oxfmt",
+    "format:check": "oxfmt --check",
     "lint": "npx eslint . -c ./.github/linters/.eslintrc.yml",
     "package": "ncc build src/index.ts --license licenses.txt",
     "package:watch": "npm run package -- --watch",
@@ -57,11 +57,9 @@
     "eslint": "^8.57.0",
     "eslint-plugin-github": "^5.1.8",
     "eslint-plugin-jsonc": "^2.20.0",
-    "eslint-plugin-prettier": "^5.4.0",
     "eslint-plugin-vitest": "^0.5.4",
     "husky": "^9.1.7",
-    "prettier": "^3.5.3",
-    "prettier-eslint": "^16.4.2",
+    "oxfmt": "^0.40.0",
     "typescript": "^5.8.3",
     "vitest": "^4.0.16"
   }

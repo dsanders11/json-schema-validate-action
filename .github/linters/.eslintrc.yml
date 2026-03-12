@@ -43,7 +43,7 @@ rules:
     'import/no-unresolved': 'off',
     'no-console': 'off',
     'no-unused-vars': 'off',
-    'prettier/prettier': 'error',
+    'prettier/prettier': 'off',
     'semi': 'off',
     '@typescript-eslint/array-type': 'error',
     '@typescript-eslint/await-thenable': 'error',
