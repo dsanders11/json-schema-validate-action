@@ -7,19 +7,22 @@ import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as http from '@actions/http-client';
 
-import type { default as Ajv, ErrorObject, Options } from 'ajv';
-import { default as Ajv2019 } from 'ajv/dist/2019';
-import { default as Ajv2020 } from 'ajv/dist/2020';
+import type Ajv from 'ajv';
+import type { ErrorObject, Options } from 'ajv';
+import Ajv2019 from 'ajv/dist/2019.js';
+import Ajv2020 from 'ajv/dist/2020.js';
 import AjvDraft04 from 'ajv-draft-04';
 import AjvFormats from 'ajv-formats';
 import AjvErrors from 'ajv-errors';
+import draft06Schema from 'ajv/dist/refs/json-schema-draft-06.json' with { type: 'json' };
+import draft07Schema from 'ajv/dist/refs/json-schema-draft-07.json' with { type: 'json' };
 import * as yaml from 'yaml';
 
 function newAjv(
   schema: Record<string, unknown>,
   options: Options,
   customErrors = false
-): Ajv {
+): Ajv.default {
   const draft04Schema =
     schema.$schema === 'http://json-schema.org/draft-04/schema#';
   const draft2020Schema =
@@ -28,24 +31,22 @@ function newAjv(
   // When using ajv-errors, allErrors must be true
   const ajvOptions = customErrors ? { ...options, allErrors: true } : options;
 
-  const ajv = AjvFormats(
+  const ajv = AjvFormats.default(
     draft04Schema
-      ? new AjvDraft04(ajvOptions)
+      ? new AjvDraft04.default(ajvOptions)
       : draft2020Schema
-        ? new Ajv2020(ajvOptions)
-        : new Ajv2019(ajvOptions)
+        ? new Ajv2020.default(ajvOptions)
+        : new Ajv2019.default(ajvOptions)
   );
 
   if (!draft04Schema && !draft2020Schema) {
-    /* oxlint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
-    ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
-    ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
-    /* oxlint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    ajv.addMetaSchema(draft06Schema);
+    ajv.addMetaSchema(draft07Schema);
   }
 
   // Add ajv-errors support if requested
   if (customErrors) {
-    AjvErrors(ajv);
+    AjvErrors.default(ajv);
   }
 
   return ajv;

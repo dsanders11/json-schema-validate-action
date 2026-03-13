@@ -18,6 +18,7 @@
     "ajv",
     "validate"
   ],
+  "type": "module",
   "exports": {
     ".": "./dist/index.js"
   },
@@ -45,10 +46,11 @@
     "ajv": "^8.12.0",
     "ajv-draft-04": "^1.0.0",
     "ajv-errors": "^3.0.0",
-    "ajv-formats": "^2.1.1",
+    "ajv-formats": "^3.0.1",
     "yaml": "^2.3.4"
   },
   "devDependencies": {
+    "@tsconfig/node24": "^24.0.4",
     "@types/node": "^20.14.10",
     "@vercel/ncc": "^0.38.3",
     "@vitest/coverage-v8": "^4.0.16",
@@ -56,7 +58,7 @@
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0",
     "oxlint-tsgolint": "^0.16.0",
-    "typescript": "^5.8.3",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }
 }
