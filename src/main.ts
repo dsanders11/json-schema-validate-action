@@ -37,10 +37,10 @@ function newAjv(
   );
 
   if (!draft04Schema && !draft2020Schema) {
-    /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    /* oxlint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
     ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-06.json'));
     ajv.addMetaSchema(require('ajv/dist/refs/json-schema-draft-07.json'));
-    /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+    /* oxlint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
   }
 
   // Add ajv-errors support if requested
