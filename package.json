@@ -31,7 +31,7 @@
     "format:write": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint --type-aware",
-    "package": "ncc build src/index.ts --license licenses.txt",
+    "package": "rolldown src/index.ts --minify --file dist/index.js --platform node",
     "package:watch": "npm run package -- --watch",
     "test": "vitest run --coverage --reporter=verbose",
     "all": "npm run format:write && npm run lint && npm run test && npm run package",
@@ -58,6 +58,7 @@
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0",
     "oxlint-tsgolint": "^0.16.0",
+    "rolldown": "^1.0.0-rc.9",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }
