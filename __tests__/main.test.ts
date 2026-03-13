@@ -108,7 +108,7 @@ describe('action', () => {
     mockGetMultilineInput({ files });
 
     vi.mocked(fs.readFile).mockImplementation(() => {
-      throw 42; // eslint-disable-line no-throw-literal
+      throw 42; // oxlint-disable-line no-throw-literal
     });
 
     await main.run();
