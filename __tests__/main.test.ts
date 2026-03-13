@@ -17,6 +17,7 @@ import {
 
 vi.mock('@actions/cache');
 vi.mock('@actions/core');
+vi.mock('@actions/glob');
 vi.mock('node:fs/promises');
 
 // Spy the action's entrypoint
@@ -322,6 +323,7 @@ describe('action', () => {
     mockGetMultilineInput({ files });
 
     vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+    mockGlobGenerator([]);
 
     await main.run();
     expect(runSpy).toHaveReturned();

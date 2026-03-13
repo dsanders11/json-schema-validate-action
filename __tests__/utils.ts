@@ -59,11 +59,11 @@ export function mockHttpGet(
   return spy;
 }
 
-const createGlobber = glob.create;
-
 export function mockGlobGenerator(files: string[]): void {
-  vi.spyOn(glob, 'create').mockImplementation(
+  vi.mocked(glob.create).mockImplementation(
     async (patterns: string, options?: glob.GlobOptions) => {
+      const { create: createGlobber } =
+        await vi.importActual<typeof import('@actions/glob')>('@actions/glob');
       const globber = await createGlobber(patterns, options);
 
       vi.spyOn(globber, 'globGenerator').mockImplementation(async function* () {
