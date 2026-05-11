@@ -56,21 +56,6 @@ describe('action', () => {
     process.exitCode = undefined;
   });
 
-  it('requires the schema input', async () => {
-    mockGetBooleanInput({});
-    mockGetInput({});
-    mockGetMultilineInput({});
-
-    await main.run();
-    expect(runSpy).toHaveReturned();
-    expect(process.exitCode).not.toBeDefined();
-
-    expect(core.setFailed).toHaveBeenCalledTimes(1);
-    expect(core.setFailed).toHaveBeenLastCalledWith(
-      'Input required and not supplied: schema'
-    );
-  });
-
   it('requires the files input', async () => {
     mockGetBooleanInput({});
     mockGetInput({ schema });
@@ -318,7 +303,7 @@ describe('action', () => {
   });
 
   it('fails if no files to validate', async () => {
-    mockGetBooleanInput({});
+    mockGetBooleanInput({ 'fail-on-no-files': true });
     mockGetInput({ schema });
     mockGetMultilineInput({ files });
 
@@ -330,6 +315,27 @@ describe('action', () => {
     expect(process.exitCode).not.toBeDefined();
 
     expect(core.setFailed).toHaveBeenLastCalledWith('No files to validate');
+  });
+
+  it('does not fail or warn if fail-on-no-files is false', async () => {
+    mockGetBooleanInput({ 'fail-on-no-files': false });
+    mockGetInput({ schema });
+    mockGetMultilineInput({ files });
+
+    vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+    mockGlobGenerator([]);
+
+    await main.run();
+    expect(runSpy).toHaveReturned();
+    expect(process.exitCode).not.toBeDefined();
+
+    expect(core.setFailed).not.toHaveBeenCalled();
+    expect(core.warning).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+    expect(core.setOutput).toHaveBeenCalledWith('files-total', 0);
+    expect(core.setOutput).toHaveBeenCalledWith('valid-total', 0);
+    expect(core.setOutput).toHaveBeenCalledWith('invalid-total', 0);
+    expect(core.setOutput).toHaveBeenCalledWith('no-schema-total', 0);
   });
 
   it('sets valid output correctly on all valid', async () => {
@@ -346,8 +352,8 @@ describe('action', () => {
     expect(runSpy).toHaveReturned();
     expect(process.exitCode).not.toBeDefined();
 
-    expect(core.setOutput).toHaveBeenCalledTimes(1);
-    expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    expect(core.setOutput).toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('valid', true);
   });
 
   it('fails on invalid if fail-on-invalid is true', async () => {
@@ -388,8 +394,8 @@ describe('action', () => {
       }
     );
 
-    expect(core.setOutput).toHaveBeenCalledTimes(1);
-    expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    expect(core.setOutput).toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('valid', false);
   });
 
   it('sets valid output correctly on some invalid', async () => {
@@ -408,8 +414,8 @@ describe('action', () => {
     expect(process.exitCode).not.toBeDefined();
 
     expect(core.error).toHaveBeenCalledTimes(2);
-    expect(core.setOutput).toHaveBeenCalledTimes(1);
-    expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    expect(core.setOutput).toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('valid', false);
   });
 
   it('debug logs each file', async () => {
@@ -452,8 +458,8 @@ describe('action', () => {
     expect(runSpy).toHaveReturned();
     expect(process.exitCode).not.toBeDefined();
 
-    expect(core.setOutput).toHaveBeenCalledTimes(1);
-    expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    expect(core.setOutput).toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('valid', true);
   });
 
   it('reports all errors if all-errors input is true', async () => {
@@ -472,8 +478,8 @@ describe('action', () => {
     expect(process.exitCode).not.toBeDefined();
 
     expect(core.error).toHaveBeenCalledTimes(4);
-    expect(core.setOutput).toHaveBeenCalledTimes(1);
-    expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    expect(core.setOutput).toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('valid', false);
   });
 
   describe('can validate schemas', () => {
@@ -492,8 +498,8 @@ describe('action', () => {
       expect(runSpy).toHaveReturned();
       expect(process.exitCode).not.toBeDefined();
 
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
     });
 
     it('which are invalid', async () => {
@@ -527,8 +533,8 @@ describe('action', () => {
           file: '/foo/bar/baz/config.yml'
         }
       );
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', false);
     });
 
     it('using JSON Schema draft-04', async () => {
@@ -543,8 +549,8 @@ describe('action', () => {
       expect(runSpy).toHaveReturned();
       expect(process.exitCode).not.toBeDefined();
 
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
     });
 
     it('using JSON Schema draft-2019-09', async () => {
@@ -559,8 +565,8 @@ describe('action', () => {
       expect(runSpy).toHaveReturned();
       expect(process.exitCode).not.toBeDefined();
 
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
     });
 
     it('using JSON Schema draft-2020-12', async () => {
@@ -575,8 +581,8 @@ describe('action', () => {
       expect(runSpy).toHaveReturned();
       expect(process.exitCode).not.toBeDefined();
 
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
     });
 
     it('but fails if $schema key is missing', async () => {
@@ -615,8 +621,8 @@ describe('action', () => {
 
       // Should report multiple errors even though all-errors was false
       expect(core.error).toHaveBeenCalledTimes(4);
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', false);
     });
 
     it('provides custom error messages when validation fails', async () => {
@@ -664,8 +670,8 @@ describe('action', () => {
       );
       expect(hasCustomMessage).toBe(true);
 
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', false);
     });
 
     it('works without custom-errors when disabled', async () => {
@@ -695,8 +701,355 @@ describe('action', () => {
       );
       expect(hasCustomErrors).toBe(false);
 
-      expect(core.setOutput).toHaveBeenCalledTimes(1);
-      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+      expect(core.setOutput).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', false);
+    });
+  });
+
+  describe('per-file $schema (no schema input)', () => {
+    const localSchemaRef = '/path/to/schema.json';
+    const remoteSchemaRef = 'https://example.com/schema.json';
+
+    it('uses each file $schema when schema input is omitted', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({});
+      mockGetMultilineInput({ files });
+
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${localSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile)
+        // First read: the per-file instance
+        .mockResolvedValueOnce(instanceWithSchema)
+        // Second read: the schema referenced by $schema
+        .mockResolvedValueOnce(schemaContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(fs.readFile).toHaveBeenCalledWith(localSchemaRef, 'utf-8');
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+    });
+
+    it('caches per-file schemas across files', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({});
+      mockGetMultilineInput({ files });
+
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${localSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(instanceWithSchema)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(instanceWithSchema);
+      mockGlobGenerator(['/foo/bar/baz/a.yml', '/foo/bar/baz/b.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      // Schema should only be read once even though two files reference it
+      const allReadCalls = vi.mocked(fs.readFile).mock.calls;
+      const schemaReads = allReadCalls.filter(
+        call => call[0] === localSchemaRef
+      );
+      expect(schemaReads.length).toBe(1);
+    });
+
+    it('fetches remote schema from $schema field', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': false });
+      mockGetInput({});
+      mockGetMultilineInput({ files });
+
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${remoteSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(instanceWithSchema)
+        .mockResolvedValueOnce(schemaContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+      const httpGetSpy = mockHttpGet(schemaContents);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(httpGetSpy).toHaveBeenCalledWith(remoteSchemaRef);
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+    });
+
+    it('fails when file has no $schema and if-no-schema defaults to error', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({});
+      mockGetMultilineInput({ files });
+
+      const instanceWithoutSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        ''
+      );
+
+      vi.mocked(fs.readFile).mockResolvedValueOnce(instanceWithoutSchema);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+
+      expect(core.setFailed).toHaveBeenCalledTimes(1);
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        '/foo/bar/baz/config.yml has no $schema field'
+      );
+    });
+
+    it('warns when file has no $schema and if-no-schema is warn', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ 'if-no-schema': 'warn' });
+      mockGetMultilineInput({ files });
+
+      const instanceWithoutSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        ''
+      );
+
+      vi.mocked(fs.readFile).mockResolvedValueOnce(instanceWithoutSchema);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.warning).toHaveBeenCalledWith(
+        '/foo/bar/baz/config.yml has no $schema field',
+        expect.objectContaining({
+          title: 'JSON Schema Validation Warning',
+          file: '/foo/bar/baz/config.yml'
+        })
+      );
+      expect(core.setFailed).not.toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+    });
+
+    it('ignores silently when file has no $schema and if-no-schema is ignore', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ 'if-no-schema': 'ignore' });
+      mockGetMultilineInput({ files });
+
+      const instanceWithoutSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        ''
+      );
+
+      vi.mocked(fs.readFile).mockResolvedValueOnce(instanceWithoutSchema);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.warning).not.toHaveBeenCalled();
+      expect(core.setFailed).not.toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+    });
+
+    it('continues to next file when one is ignored', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ 'if-no-schema': 'ignore' });
+      mockGetMultilineInput({ files });
+
+      const instanceWithoutSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        ''
+      );
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${localSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(instanceWithoutSchema)
+        .mockResolvedValueOnce(instanceWithSchema)
+        .mockResolvedValueOnce(schemaContents);
+      mockGlobGenerator([
+        '/foo/bar/baz/no-schema.yml',
+        '/foo/bar/baz/has-schema.yml'
+      ]);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(fs.readFile).toHaveBeenCalledWith(localSchemaRef, 'utf-8');
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+    });
+
+    it('rejects an invalid if-no-schema value', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ 'if-no-schema': 'bogus' });
+      mockGetMultilineInput({ files });
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+
+      expect(core.setFailed).toHaveBeenCalledTimes(1);
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        "Invalid value for if-no-schema: 'bogus' (must be 'error', 'warn', or 'ignore')"
+      );
+    });
+
+    it('aborts if per-file remote schema fetch fails', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': false });
+      mockGetInput({});
+      mockGetMultilineInput({ files });
+
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${remoteSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile).mockResolvedValueOnce(instanceWithSchema);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+      mockHttpGet('', 500, 'Server Error');
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        'Failed to fetch remote schema: 500 - Server Error'
+      );
+    });
+
+    it('aborts if per-file schema is missing $schema key', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({});
+      mockGetMultilineInput({ files });
+
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${localSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(instanceWithSchema)
+        .mockResolvedValueOnce(schemaContents.replace('$schema', '_schema'));
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).toEqual(1);
+
+      expect(core.error).toHaveBeenCalledWith(
+        'JSON schema missing $schema key',
+        expect.objectContaining({
+          title: 'JSON Schema Validation Error',
+          file: localSchemaRef
+        })
+      );
+    });
+  });
+
+  describe('counter outputs', () => {
+    it('sets all counter outputs when everything is valid', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(instanceContents)
+        .mockResolvedValueOnce(instanceContents);
+      mockGlobGenerator(['/foo/bar/baz/a.yml', '/foo/bar/baz/b.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+      expect(core.setOutput).toHaveBeenCalledWith('files-total', 2);
+      expect(core.setOutput).toHaveBeenCalledWith('valid-total', 2);
+      expect(core.setOutput).toHaveBeenCalledWith('invalid-total', 0);
+      expect(core.setOutput).toHaveBeenCalledWith('no-schema-total', 0);
+    });
+
+    it('counts invalid files separately', async () => {
+      mockGetBooleanInput({ 'fail-on-invalid': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce('invalid content')
+        .mockResolvedValueOnce(instanceContents);
+      mockGlobGenerator(['/foo/bar/baz/a.yml', '/foo/bar/baz/b.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledWith('valid', false);
+      expect(core.setOutput).toHaveBeenCalledWith('files-total', 2);
+      expect(core.setOutput).toHaveBeenCalledWith('valid-total', 1);
+      expect(core.setOutput).toHaveBeenCalledWith('invalid-total', 1);
+      expect(core.setOutput).toHaveBeenCalledWith('no-schema-total', 0);
+    });
+
+    it('counts files missing $schema when if-no-schema is warn', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ 'if-no-schema': 'warn' });
+      mockGetMultilineInput({ files });
+
+      const localSchemaRef = '/path/to/schema.json';
+      const instanceWithoutSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        ''
+      );
+      const instanceWithSchema = instanceContents.replace(
+        /\$schema:.*$/m,
+        `$schema: ${localSchemaRef}`
+      );
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(instanceWithoutSchema)
+        .mockResolvedValueOnce(instanceWithSchema)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(instanceWithoutSchema);
+      mockGlobGenerator([
+        '/foo/bar/baz/no-schema-a.yml',
+        '/foo/bar/baz/has-schema.yml',
+        '/foo/bar/baz/no-schema-b.yml'
+      ]);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setOutput).toHaveBeenCalledWith('valid', true);
+      expect(core.setOutput).toHaveBeenCalledWith('files-total', 3);
+      expect(core.setOutput).toHaveBeenCalledWith('valid-total', 1);
+      expect(core.setOutput).toHaveBeenCalledWith('invalid-total', 0);
+      expect(core.setOutput).toHaveBeenCalledWith('no-schema-total', 2);
+    });
+
+    it('does not emit outputs when no files matched and fail-on-no-files is true', async () => {
+      mockGetBooleanInput({ 'fail-on-no-files': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      vi.mocked(fs.readFile).mockResolvedValueOnce(schemaContents);
+      mockGlobGenerator([]);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+
+      expect(core.setFailed).toHaveBeenLastCalledWith('No files to validate');
+      expect(core.setOutput).not.toHaveBeenCalled();
     });
   });
 });

@@ -90,6 +90,29 @@ Example schema with custom error messages:
 Schemas can be validated by setting the `schema` input to the string literal
 `json-schema`.
 
+### Per-file Schema via `$schema`
+
+The `schema` input is optional. When omitted, each file being validated must
+declare its own schema via a top-level `$schema` field (a URL or file path).
+This lets a single action invocation validate a mix of files that each use a
+different schema.
+
+```yaml
+- name: Validate config files
+  uses: dsanders11/json-schema-validate-action@v2.0.0
+  with:
+    files: |
+      configs/**/*.yml
+      configs/**/*.json
+```
+
+Behavior when a file has no `$schema` field (and no `schema` input was provided)
+is controlled by the `if-no-schema` input:
+
+- `error` (default) - the action fails with an error
+- `warn` - a warning annotation is emitted and the file is skipped
+- `ignore` - the file is silently skipped
+
 ### Remote Schema Cache Busting
 
 By default the action will cache remote schemas (this can be disabled via the
@@ -98,21 +121,31 @@ simply set a URL fragment (e.g. `#bust-cache`) on the schema URL.
 
 ### Inputs
 
-- `schema` - **(required)** URL or file path to JSON schema to validate against
+- `schema` - URL or file path to JSON schema to validate against. If omitted,
+  the schema for each file is read from its `$schema` field.
 - `files` - **(required)** Multiline input of file paths to validate - supports
   globs
 - `fail-on-invalid` - Whether or not to set action failure if a file is invalid
   (default: `true`)
+- `fail-on-no-files` - Whether or not to set action failure if no files were
+  matched (default: `true`)
 - `cache-remote-schema` - Whether or not to cache the schema if remote (default:
   `true`)
 - `all-errors` - Whether to report all errors or stop after the first (default:
   `false`)
 - `custom-errors` - Enable support for custom error messages using ajv-errors
   (default: `false`)
+- `if-no-schema` - What to do when `schema` is omitted and a file has no
+  `$schema` field. One of `error`, `warn`, or `ignore` (default: `error`).
 
 ### Outputs
 
 - `valid` - `true` if all files are valid, otherwise `false`
+- `files-total` - Total number of files matched by the `files` input
+- `valid-total` - Number of files which validated successfully
+- `invalid-total` - Number of files which failed validation
+- `no-schema-total` - Number of files which had no `$schema` field (only
+  meaningful when `if-no-schema` is `warn` or `ignore`)
 
 ## License
 

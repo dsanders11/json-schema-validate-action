@@ -8,13 +8,19 @@ branding:
 
 inputs:
   schema:
-    description: URL or file path to JSON schema to validate against
-    required: true
+    description: |
+      URL or file path to JSON schema to validate against. If not provided,
+      the schema for each file will be determined from its `$schema` field.
+    required: false
   files:
     description: Multiline input of file paths to validate - supports globs
     required: true
   fail-on-invalid:
     description: Whether or not to set action failure if a file is invalid
+    required: false
+    default: true
+  fail-on-no-files:
+    description: Whether or not to set action failure if no files were matched
     required: false
     default: true
   cache-remote-schema:
@@ -29,10 +35,27 @@ inputs:
     description: Enable support for custom error messages using ajv-errors
     required: false
     default: false
+  if-no-schema:
+    description: |
+      What to do when a file has no `$schema` field and no `schema` input
+      was provided. One of `error`, `warn`, or `ignore` (default: `error`).
+    required: false
+    default: error
 
 outputs:
   valid:
     description: true if all files are valid, otherwise false
+  files-total:
+    description: Total number of files matched by the `files` input
+  valid-total:
+    description: Number of files which validated successfully
+  invalid-total:
+    description: Number of files which failed validation
+  no-schema-total:
+    description: |
+      Number of files which had no `$schema` field (when no `schema` input
+      was provided). Only meaningful when `if-no-schema` is `warn` or
+      `ignore`.
 
 runs:
   using: node24
