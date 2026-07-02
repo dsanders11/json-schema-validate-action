@@ -1,0 +1,11 @@
+# Based on super-linter's default template, with an ignore file added
+# https://github.com/super-linter/super-linter/blob/main/TEMPLATES/trivy.yaml
+exit-code: 1
+exit-on-eol: 2
+ignorefile: .trivyignore.yaml
+scan:
+  disable-telemetry: true
+  scanners:
+    - vuln
+    - misconfig
+    - secret
