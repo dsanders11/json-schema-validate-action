@@ -1,0 +1,5 @@
+secrets:
+  - id: azure-storage-account-key
+    paths:
+      - dist/index.js
+    statement: False positive from a bundled dependency
