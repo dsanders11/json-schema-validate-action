@@ -85,6 +85,13 @@ Example schema with custom error messages:
 }
 ```
 
+### Schemas With External References
+
+If your schema references other schemas, list them in the `additional-schemas`
+input and they will be registered with AJV before validation. Remote schemas are
+downloaded (and cached according to the `cache-remote-schema` input), while file
+paths are read directly.
+
 ### Validating Schema
 
 Schemas can be validated by setting the `schema` input to the string literal
@@ -101,6 +108,8 @@ simply set a URL fragment (e.g. `#bust-cache`) on the schema URL.
 - `schema` - **(required)** URL or file path to JSON schema to validate against
 - `files` - **(required)** Multiline input of file paths to validate - supports
   globs
+- `additional-schemas` - Multiline input of additional schemas (URL or file
+  path) to register with AJV so `$ref`s to them can be resolved
 - `fail-on-invalid` - Whether or not to set action failure if a file is invalid
   (default: `true`)
 - `cache-remote-schema` - Whether or not to cache the schema if remote (default:

@@ -24,8 +24,12 @@ vi.mock('node:fs/promises');
 const runSpy = vi.spyOn(main, 'run');
 
 let schemaContents: string;
+let compositeSchemaContents: string;
+let localRefSchemaContents: string;
+let remoteRefSchemaContents: string;
 let invalidSchemaContents: string;
 let instanceContents: string;
+let compositeInstanceContents: string;
 
 describe('action', () => {
   const schema = '/foo/bar';
@@ -47,6 +51,22 @@ describe('action', () => {
     );
     instanceContents = actualFs.readFileSync(
       path.join(__dirname, 'fixtures', 'evm-config.yml'),
+      'utf-8'
+    );
+    compositeSchemaContents = actualFs.readFileSync(
+      path.join(__dirname, 'fixtures', 'composite.schema.json'),
+      'utf-8'
+    );
+    compositeInstanceContents = actualFs.readFileSync(
+      path.join(__dirname, 'fixtures', 'composite-config.yml'),
+      'utf-8'
+    );
+    localRefSchemaContents = actualFs.readFileSync(
+      path.join(__dirname, 'fixtures', 'local-ref.schema.json'),
+      'utf-8'
+    );
+    remoteRefSchemaContents = actualFs.readFileSync(
+      path.join(__dirname, 'fixtures', 'remote-ref.schema.json'),
       'utf-8'
     );
   });
@@ -169,6 +189,7 @@ describe('action', () => {
     mockGetInput({ schema: remoteSchema });
     mockGetMultilineInput({ files });
 
+    vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
     const httpGetSpy = mockHttpGet(schemaContents, 404, 'Not Found');
 
     await main.run();
@@ -306,7 +327,7 @@ describe('action', () => {
 
     await main.run();
     expect(runSpy).toHaveReturned();
-    expect(process.exitCode).toEqual(1);
+    expect(process.exitCode).not.toBeDefined();
 
     expect(core.error).toHaveBeenLastCalledWith(
       'JSON schema missing $schema key',
@@ -314,6 +335,10 @@ describe('action', () => {
         title: 'JSON Schema Validation Error',
         file: '/foo/bar'
       }
+    );
+    expect(core.setFailed).toHaveBeenCalledTimes(1);
+    expect(core.setFailed).toHaveBeenLastCalledWith(
+      'Error while validating schema: /foo/bar'
     );
   });
 
@@ -440,10 +465,16 @@ describe('action', () => {
 
     vi.mocked(fs.readFile)
       .mockResolvedValueOnce(
-        schemaContents.replace(
-          'http://json-schema.org/draft-07/schema#',
-          'http://json-schema.org/draft-04/schema#'
-        )
+        schemaContents
+          .replace(
+            'http://json-schema.org/draft-07/schema#',
+            'http://json-schema.org/draft-04/schema#'
+          )
+          .replace(
+            // $id is not supported in draft-04, so replace it with id
+            '"$id":',
+            '"id":'
+          )
       )
       .mockResolvedValueOnce(instanceContents);
     mockGlobGenerator(['/foo/bar/baz/config.yml']);
@@ -595,6 +626,388 @@ describe('action', () => {
           file: '/foo/bar/baz/config.yml'
         }
       );
+    });
+  });
+
+  describe('additional schemas', () => {
+    const evmSchemaPath = '/foo/evm-config.schema.json';
+    const remoteWorkflowSchema =
+      'https://json.schemastore.org/github-workflow.json';
+
+    // Minimal stand-in for the remote GitHub workflow schema
+    const workflowSchemaContents = JSON.stringify({
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      type: 'object',
+      required: ['jobs']
+    });
+
+    it('fails to resolve $ref without additional schemas', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ schema });
+      mockGetMultilineInput({ files });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(compositeSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.setFailed).toHaveBeenCalledTimes(1);
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        expect.stringMatching(/^can't resolve reference/)
+      );
+    });
+
+    it('registers additional schemas from local file paths', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [evmSchemaPath]
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(localRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(fs.readFile).toHaveBeenCalledWith(evmSchemaPath, 'utf-8');
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('does not cache local additional schemas', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [evmSchemaPath]
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(localRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(cache.saveCache).not.toHaveBeenCalled();
+      expect(cache.restoreCache).not.toHaveBeenCalled();
+    });
+
+    it('validates files against additional schemas', async () => {
+      mockGetBooleanInput({
+        'cache-remote-schema': false,
+        'fail-on-invalid': true
+      });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [evmSchemaPath, remoteWorkflowSchema]
+      });
+
+      mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(compositeSchemaContents)
+        .mockResolvedValueOnce(JSON.stringify({ 'gh-workflow': {} }));
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).toEqual(1);
+
+      expect(core.error).toHaveBeenCalledWith(
+        'Error while validating file: /foo/bar/baz/config.yml'
+      );
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
+    });
+
+    it('fetches remote additional schemas on cache miss', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [remoteWorkflowSchema]
+      });
+
+      vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
+      const httpGetSpy = mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(remoteRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(httpGetSpy).toHaveBeenCalledWith(remoteWorkflowSchema);
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('caches remote additional schemas on cache miss', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [remoteWorkflowSchema]
+      });
+
+      vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
+      mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(remoteRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      // Confirm cache calls use the same paths and key
+      expect(cache.restoreCache).toHaveBeenCalledTimes(1);
+      const [paths, key] = vi.mocked(cache.restoreCache).mock.calls[0];
+      expect(cache.saveCache).toHaveBeenCalledTimes(1);
+      expect(cache.saveCache).toHaveBeenLastCalledWith(paths, key);
+    });
+
+    it('does not fetch remote additional schemas on cache hit', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [remoteWorkflowSchema]
+      });
+
+      vi.spyOn(cache, 'restoreCache').mockResolvedValue('cache-key');
+      const httpGetSpy = mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(remoteRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(httpGetSpy).not.toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('removes the downloaded schema file after reading it', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [remoteWorkflowSchema]
+      });
+
+      mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(remoteRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      const [schemaPath] = vi.mocked(fs.writeFile).mock.calls[0];
+      expect(fs.rm).toHaveBeenCalledTimes(1);
+      expect(fs.rm).toHaveBeenLastCalledWith(schemaPath, { force: true });
+    });
+
+    it('fails if fetching remote additional schema fails', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': true });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [remoteWorkflowSchema]
+      });
+
+      vi.spyOn(cache, 'restoreCache').mockResolvedValue(undefined);
+      const httpGetSpy = mockHttpGet(
+        workflowSchemaContents,
+        500,
+        'Server Error'
+      );
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(httpGetSpy).toHaveBeenCalledWith(remoteWorkflowSchema);
+      expect(core.setFailed).toHaveBeenCalledTimes(1);
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        'Failed to fetch remote schema: 500 - Server Error'
+      );
+    });
+
+    it('fails if additional schema missing $schema key', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [evmSchemaPath]
+      });
+
+      vi.mocked(fs.readFile).mockResolvedValueOnce(
+        schemaContents.replace('$schema', '_schema')
+      );
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.error).toHaveBeenLastCalledWith(
+        'JSON schema missing $schema key',
+        {
+          title: 'JSON Schema Validation Error',
+          file: evmSchemaPath
+        }
+      );
+      expect(core.setFailed).toHaveBeenCalledTimes(1);
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        `Error while validating schema: ${evmSchemaPath}`
+      );
+    });
+
+    it('fails if remote additional schema missing $schema key', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [remoteWorkflowSchema]
+      });
+
+      const noSchemaKeyContents = workflowSchemaContents.replace(
+        '$schema',
+        '_schema'
+      );
+
+      mockHttpGet(noSchemaKeyContents);
+      vi.mocked(fs.readFile).mockResolvedValueOnce(noSchemaKeyContents);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      // No file annotation since the schema is not a local file
+      expect(core.error).toHaveBeenLastCalledWith(
+        'JSON schema missing $schema key'
+      );
+      expect(core.setFailed).toHaveBeenCalledTimes(1);
+      expect(core.setFailed).toHaveBeenLastCalledWith(
+        `Error while validating schema: ${remoteWorkflowSchema}`
+      );
+    });
+
+    it('strips URL fragment when registering remote additional schemas', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [`${remoteWorkflowSchema}#bust-cache`]
+      });
+
+      // The stand-in schema has no $id, so the $ref
+      // can only resolve via the registered key
+      const httpGetSpy = mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(remoteRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(httpGetSpy).toHaveBeenCalledWith(
+        `${remoteWorkflowSchema}#bust-cache`
+      );
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('warns about duplicate additional schemas', async () => {
+      mockGetBooleanInput({});
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [evmSchemaPath, evmSchemaPath]
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(localRefSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(core.warning).toHaveBeenCalledWith(
+        `Duplicate additional schema path: ${evmSchemaPath}. The last one will be used.`
+      );
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
+    });
+
+    it('registers multiple additional schemas', async () => {
+      mockGetBooleanInput({ 'cache-remote-schema': false });
+      mockGetInput({ schema });
+      mockGetMultilineInput({
+        files,
+        'additional-schemas': [evmSchemaPath, remoteWorkflowSchema]
+      });
+
+      const httpGetSpy = mockHttpGet(workflowSchemaContents);
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(schemaContents)
+        .mockResolvedValueOnce(workflowSchemaContents)
+        .mockResolvedValueOnce(compositeSchemaContents)
+        .mockResolvedValueOnce(compositeInstanceContents);
+      mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+      await main.run();
+      expect(runSpy).toHaveReturned();
+      expect(process.exitCode).not.toBeDefined();
+
+      expect(fs.readFile).toHaveBeenCalledWith(evmSchemaPath, 'utf-8');
+      expect(httpGetSpy).toHaveBeenCalledWith(remoteWorkflowSchema);
+      expect(core.setOutput).toHaveBeenCalledTimes(1);
+      expect(core.setOutput).toHaveBeenLastCalledWith('valid', true);
     });
   });
 

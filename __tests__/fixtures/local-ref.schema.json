@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Schema which references a local schema",
+  "type": "object",
+  "properties": {
+    "evm": {
+      "$ref": "urn:uuid:898de082-ab8b-447b-8ed1-f0b88d4c29c1"
+    }
+  },
+  "additionalProperties": true
+}

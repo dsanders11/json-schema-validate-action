@@ -71,6 +71,15 @@ jobs:
           files: .github/workflows/**.yml
           fail-on-invalid: false
           all-errors: true
+      - name: Test Local Action (Additional Schemas Valid)
+        id: additional-schemas-valid
+        uses: ./
+        with:
+          schema: ./__tests__/fixtures/composite.schema.json
+          files: ./__tests__/fixtures/composite-config.yml
+          additional-schemas: |
+            ./__tests__/fixtures/evm-config.schema.json
+            https://json.schemastore.org/github-workflow.json
       - name: Confirm Output
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -78,6 +87,7 @@ jobs:
           SINGLE_FILE_NOT_VALID: ${{ steps.single-file-not-valid.outputs.valid }}
           MULTIPLE_FILE_VALID: ${{ steps.multiple-file-valid.outputs.valid }}
           MULTIPLE_FILE_NOT_VALID: ${{ steps.multiple-file-not-valid.outputs.valid }}
+          ADDITIONAL_SCHEMAS_VALID: ${{ steps.additional-schemas-valid.outputs.valid }}
         with:
           script: |
             const assert = require('node:assert');
@@ -86,6 +96,7 @@ jobs:
             assert.strictEqual(process.env.SINGLE_FILE_NOT_VALID, 'false', 'Expected output for single file invalid to be false');
             assert.strictEqual(process.env.MULTIPLE_FILE_VALID, 'true', 'Expected output for multiple file valid to be true');
             assert.strictEqual(process.env.MULTIPLE_FILE_NOT_VALID, 'false', 'Expected output for multiple file invalid to be false');
+            assert.strictEqual(process.env.ADDITIONAL_SCHEMAS_VALID, 'true', 'Expected output for additional schemas valid to be true');
 
   release:
     name: release
