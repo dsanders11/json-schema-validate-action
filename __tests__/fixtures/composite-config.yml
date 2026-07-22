@@ -1,0 +1,38 @@
+evm:
+  root: /path/to/your/developer/folder
+  remotes:
+    electron:
+      # SSH or HTTPS url
+      # ssh: git@github.com:electron/electron.git
+      # https: https://github.com/electron/electron
+      origin: git@github.com:electron/electron.git
+  gen:
+    args:
+      # path to goma for faster builds (https://notgoma.com)
+      - import("/Users/user_name/.electron_build_tools/third_party/goma.gn")
+    out: Testing
+  env:
+    GIT_CACHE_PATH: /Users/user_name/.git_cache
+    CHROMIUM_BUILDTOOLS_PATH: /path/to/your/developer/folder/src/build-tools
+  $schema: file:///Users/user_name/.electron_build_tools/evm-config.schema.json
+
+gh-workflow:
+  name: Run zizmor
+  on:
+    push:
+      branches:
+        - main
+    pull_request:
+  permissions: {}
+  jobs:
+    zizmor:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+          with:
+            persist-credentials: false
+        - name: Run zizmor
+          uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+          with:
+            advanced-security: false

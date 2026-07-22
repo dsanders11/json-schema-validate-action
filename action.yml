@@ -13,6 +13,11 @@ inputs:
   files:
     description: Multiline input of file paths to validate - supports globs
     required: true
+  additional-schemas:
+    description:
+      Multiline input of additional schemas (URL or file path) to register with
+      AJV so $refs to them can be resolved
+    required: false
   fail-on-invalid:
     description: Whether or not to set action failure if a file is invalid
     required: false

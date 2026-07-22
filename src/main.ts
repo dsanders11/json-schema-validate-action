@@ -18,10 +18,13 @@ import draft06Schema from 'ajv/dist/refs/json-schema-draft-06.json' with { type:
 import draft07Schema from 'ajv/dist/refs/json-schema-draft-07.json' with { type: 'json' };
 import * as yaml from 'yaml';
 
+type Schema = Record<string, unknown>;
+
 function newAjv(
-  schema: Record<string, unknown>,
+  schema: Schema,
   options: Options,
-  customErrors = false
+  customErrors = false,
+  additionalSchemas: Record<string, Schema> = {}
 ): Ajv.default {
   const draft04Schema =
     schema.$schema === 'http://json-schema.org/draft-04/schema#';
@@ -49,7 +52,89 @@ function newAjv(
     AjvErrors.default(ajv);
   }
 
+  // Register additional schemas so $refs to them can be resolved
+  for (const [key, additionalSchema] of Object.entries(additionalSchemas)) {
+    ajv.addSchema(additionalSchema, key);
+  }
+
   return ajv;
+}
+
+function isRemoteSchema(schemaPath: string): boolean {
+  return schemaPath.startsWith('http://') || schemaPath.startsWith('https://');
+}
+
+function quickValidateSchema(schemaPath: string, schema: Schema): void {
+  if (typeof schema.$schema !== 'string') {
+    const errorMessage = 'JSON schema missing $schema key';
+
+    if (isRemoteSchema(schemaPath)) {
+      core.error(errorMessage);
+    } else {
+      core.error(errorMessage, {
+        title: 'JSON Schema Validation Error',
+        file: schemaPath
+      });
+    }
+
+    throw new Error(`Error while validating schema: ${schemaPath}`);
+  }
+}
+
+async function fetchRemoteSchema(
+  schemaUrl: string,
+  options: { cache: boolean }
+): Promise<Schema> {
+  const schemaHash = createHash('sha256').update(schemaUrl).digest('hex');
+  const schemaPath = path.join(
+    process.env.RUNNER_TEMP ?? '/tmp/',
+    `schema-${schemaHash}.json`
+  );
+
+  const cacheKey = `schema-${schemaHash}`;
+  let cacheHit = false;
+
+  if (options.cache) {
+    try {
+      cacheHit =
+        (await cache.restoreCache([schemaPath], cacheKey)) !== undefined;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : JSON.stringify(error);
+      core.warning(`Error while trying to restore cache: ${message}`);
+    }
+  }
+
+  if (!cacheHit) {
+    // Not found in cache, so download and cache it
+    const client = new http.HttpClient();
+    const res = await client.get(schemaUrl);
+
+    if (res.message.statusCode !== 200) {
+      throw new Error(
+        `Failed to fetch remote schema: ${res.message.statusCode} - ${res.message.statusMessage}`
+      );
+    }
+
+    await fs.writeFile(schemaPath, await res.readBody(), 'utf-8');
+
+    if (options.cache) {
+      try {
+        await cache.saveCache([schemaPath], cacheKey);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : JSON.stringify(error);
+        core.warning(`Error while trying to save cache: ${message}`);
+      }
+    }
+  }
+
+  try {
+    return JSON.parse(await fs.readFile(schemaPath, 'utf-8'));
+  } finally {
+    // We no longer need the schema file so remove it
+    await fs.rm(schemaPath, { force: true });
+  }
 }
 
 /**
@@ -58,63 +143,43 @@ function newAjv(
  */
 export async function run(): Promise<void> {
   try {
-    let schemaPath = core.getInput('schema', { required: true });
+    const schemaPath = core.getInput('schema', { required: true });
     const files = core.getMultilineInput('files', { required: true });
     const allErrors = core.getBooleanInput('all-errors');
     const cacheRemoteSchema = core.getBooleanInput('cache-remote-schema');
     const failOnInvalid = core.getBooleanInput('fail-on-invalid');
     const customErrors = core.getBooleanInput('custom-errors');
-
-    // Fetch and cache remote schemas
-    if (schemaPath.startsWith('http://') || schemaPath.startsWith('https://')) {
-      const schemaUrl = schemaPath;
-      const schemaHash = createHash('sha256').update(schemaPath).digest('hex');
-      schemaPath = path.join(
-        process.env.RUNNER_TEMP ?? '/tmp/',
-        `schema-${schemaHash}.json`
-      );
-
-      const cacheKey = `schema-${schemaHash}`;
-      let cacheHit = false;
-
-      if (cacheRemoteSchema) {
-        try {
-          cacheHit =
-            (await cache.restoreCache([schemaPath], cacheKey)) !== undefined;
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : JSON.stringify(error);
-          core.warning(`Error while trying to restore cache: ${message}`);
-        }
-      }
-
-      if (!cacheHit) {
-        // Not found in cache, so download and cache it
-        const client = new http.HttpClient();
-        const res = await client.get(schemaUrl);
-
-        if (res.message.statusCode !== 200) {
-          core.setFailed(
-            `Failed to fetch remote schema: ${res.message.statusCode} - ${res.message.statusMessage}`
-          );
-          return;
-        }
-
-        await fs.writeFile(schemaPath, await res.readBody(), 'utf-8');
-
-        if (cacheRemoteSchema) {
-          try {
-            await cache.saveCache([schemaPath], cacheKey);
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : JSON.stringify(error);
-            core.warning(`Error while trying to save cache: ${message}`);
-          }
-        }
-      }
-    }
+    const additionalSchemaPaths = core.getMultilineInput('additional-schemas');
 
     const validatingSchema = schemaPath === 'json-schema';
+    const additionalSchemas: Record<string, Schema> = {};
+
+    for (const additionalSchemaPath of additionalSchemaPaths) {
+      let additionalSchema: Schema;
+      let schemaKey: string;
+
+      if (isRemoteSchema(additionalSchemaPath)) {
+        additionalSchema = await fetchRemoteSchema(additionalSchemaPath, {
+          cache: cacheRemoteSchema
+        });
+        // Strip any URL fragment (e.g. #bust-cache) so $refs
+        // to the URL can resolve to the registered schema
+        schemaKey = additionalSchemaPath.split('#')[0];
+      } else {
+        additionalSchema = JSON.parse(
+          await fs.readFile(additionalSchemaPath, 'utf-8')
+        );
+        schemaKey = additionalSchemaPath;
+      }
+
+      quickValidateSchema(additionalSchemaPath, additionalSchema);
+      if (Object.hasOwn(additionalSchemas, schemaKey)) {
+        core.warning(
+          `Duplicate additional schema path: ${additionalSchemaPath}. The last one will be used.`
+        );
+      }
+      additionalSchemas[schemaKey] = additionalSchema;
+    }
 
     let validate: (
       data: Record<string, unknown>
@@ -124,28 +189,34 @@ export async function run(): Promise<void> {
       validate = async (data: Record<string, unknown>) => {
         // Create a new Ajv instance per-schema since
         // they may require different draft versions
-        const ajv = newAjv(data, { allErrors }, customErrors);
+        const ajv = newAjv(
+          data,
+          { allErrors },
+          customErrors,
+          additionalSchemas
+        );
 
         await ajv.validateSchema(data);
         return ajv.errors || [];
       };
     } else {
-      // Load and compile the schema
-      const schema: Record<string, unknown> = JSON.parse(
-        await fs.readFile(schemaPath, 'utf-8')
-      );
+      let schema: Schema;
 
-      if (typeof schema.$schema !== 'string') {
-        core.error(`Error while validating schema: ${schemaPath}`);
-        core.error('JSON schema missing $schema key', {
-          title: 'JSON Schema Validation Error',
-          file: schemaPath
+      if (isRemoteSchema(schemaPath)) {
+        schema = await fetchRemoteSchema(schemaPath, {
+          cache: cacheRemoteSchema
         });
-        process.exitCode = 1;
-        return;
+      } else {
+        schema = JSON.parse(await fs.readFile(schemaPath, 'utf-8'));
       }
 
-      const ajv = newAjv(schema, { allErrors }, customErrors);
+      quickValidateSchema(schemaPath, schema);
+      const ajv = newAjv(
+        schema,
+        { allErrors },
+        customErrors,
+        additionalSchemas
+      );
 
       validate = async (data: object) => {
         ajv.validate(schema, data);
