@@ -20,6 +20,73 @@ import * as yaml from 'yaml';
 
 type Schema = Record<string, unknown>;
 
+type AnnotationPosition = Pick<
+  core.AnnotationProperties,
+  'startLine' | 'endLine' | 'startColumn' | 'endColumn'
+>;
+
+function keyMatches(pair: yaml.Pair, name: string): boolean {
+  return (
+    yaml.isScalar(pair.key) &&
+    (typeof pair.key.value === 'string' ||
+      typeof pair.key.value === 'number') &&
+    `${pair.key.value}` === name
+  );
+}
+
+// Map an error's instancePath to its location in the file, so the
+// annotation can point at the line rather than the whole file
+export function errorPosition(
+  doc: yaml.Document,
+  lineCounter: yaml.LineCounter,
+  error: ErrorObject
+): AnnotationPosition {
+  const segments =
+    error.instancePath === ''
+      ? []
+      : error.instancePath
+          .slice(1)
+          .split('/')
+          .map(s => s.replaceAll('~1', '/').replaceAll('~0', '~'));
+
+  let node: unknown = doc.contents;
+  for (const segment of segments) {
+    if (yaml.isMap(node)) {
+      node = node.items.find(pair => keyMatches(pair, segment))?.value;
+    } else if (yaml.isSeq(node)) {
+      node = node.items[Number(segment)];
+    } else {
+      return {};
+    }
+  }
+
+  const additionalProperty = (error.params as Record<string, unknown>)
+    .additionalProperty;
+  if (typeof additionalProperty === 'string' && yaml.isMap(node)) {
+    const key = node.items.find(pair =>
+      keyMatches(pair, additionalProperty)
+    )?.key;
+    if (key) node = key;
+  }
+
+  if (!yaml.isNode(node) || !node.range) return {};
+
+  const start = lineCounter.linePos(node.range[0]);
+  const end = lineCounter.linePos(node.range[1]);
+  // A block ends at the start of the next line, which isn't part of it
+  if (end.col === 1 && end.line > start.line) end.line -= 1;
+
+  // Columns are only used by GitHub for single-line annotations
+  return start.line === end.line
+    ? {
+        startLine: start.line,
+        endLine: end.line,
+        startColumn: start.col,
+        endColumn: end.col
+      }
+    : { startLine: start.line, endLine: end.line };
+}
+
 function newAjv(
   schema: Schema,
   options: Options,
@@ -232,7 +299,13 @@ export async function run(): Promise<void> {
     for await (const file of globber.globGenerator()) {
       filesValidated = true;
 
-      const instance = yaml.parse(await fs.readFile(file, 'utf-8'));
+      const lineCounter = new yaml.LineCounter();
+      const doc = yaml.parseDocument(await fs.readFile(file, 'utf-8'), {
+        lineCounter
+      });
+      // yaml.parse() throws on errors, keep that behavior
+      if (doc.errors.length) throw doc.errors[0];
+      const instance = doc.toJS();
 
       if (validatingSchema && typeof instance.$schema !== 'string') {
         core.error(`Error while validating schema: ${file}`);
@@ -254,7 +327,8 @@ export async function run(): Promise<void> {
           core.error(`Error while validating file: ${file}`);
           core.error(JSON.stringify(error, null, 4), {
             title: 'JSON Schema Validation Error',
-            file
+            file,
+            ...errorPosition(doc, lineCounter, error)
           });
         }
       } else {

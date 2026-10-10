@@ -409,7 +409,11 @@ describe('action', () => {
       ),
       {
         title: 'JSON Schema Validation Error',
-        file: '/foo/bar/baz/config.yml'
+        file: '/foo/bar/baz/config.yml',
+        startLine: 1,
+        endLine: 1,
+        startColumn: 1,
+        endColumn: 16
       }
     );
 
@@ -555,7 +559,11 @@ describe('action', () => {
         ),
         {
           title: 'JSON Schema Validation Error',
-          file: '/foo/bar/baz/config.yml'
+          file: '/foo/bar/baz/config.yml',
+          startLine: 8,
+          endLine: 8,
+          startColumn: 20,
+          endColumn: 25
         }
       );
       expect(core.setOutput).toHaveBeenCalledTimes(1);
