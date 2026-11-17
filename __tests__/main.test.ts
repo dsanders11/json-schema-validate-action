@@ -511,6 +511,21 @@ describe('action', () => {
     expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
   });
 
+  it('fails if file contains invalid YAML', async () => {
+    mockGetBooleanInput({});
+    mockGetInput({ schema });
+    mockGetMultilineInput({ files });
+
+    vi.mocked(fs.readFile)
+      .mockResolvedValueOnce(schemaContents)
+      .mockResolvedValueOnce('invalid: [unclosed');
+    mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+    await main.run();
+    expect(runSpy).toHaveReturned();
+    expect(core.setFailed).toHaveBeenCalled();
+  });
+
   describe('can validate schemas', () => {
     beforeEach(() => {
       mockGetBooleanInput({});

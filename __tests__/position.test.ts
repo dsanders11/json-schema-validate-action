@@ -92,6 +92,42 @@ describe('errorPosition', () => {
   });
 
   it('returns nothing when the path is not in the file', () => {
+    expect(positionOf('a: 1\n', { instancePath: '/b' })).toEqual({});
     expect(positionOf('a: 1\n', { instancePath: '/b/c' })).toEqual({});
+  });
+
+  it('returns nothing when the node has no range', () => {
+    const doc = new yaml.Document({ a: 1 });
+    const lineCounter = new yaml.LineCounter();
+    expect(
+      errorPosition(doc, lineCounter, {
+        instancePath: '/a',
+        keyword: 'type',
+        schemaPath: '#',
+        params: {}
+      })
+    ).toEqual({});
+  });
+
+  it('falls back to the parent map when additionalProperty is not found', () => {
+    expect(
+      positionOf('a: 1\nb: 2\n', {
+        instancePath: '',
+        keyword: 'additionalProperties',
+        params: { additionalProperty: 'missing' }
+      })
+    ).toEqual({
+      startLine: 1,
+      endLine: 2
+    });
+  });
+
+  it('handles boolean keys in YAML', () => {
+    expect(positionOf('true: 1\n', { instancePath: '/true' })).toEqual({
+      startLine: 1,
+      endLine: 1,
+      startColumn: 7,
+      endColumn: 8
+    });
   });
 });
