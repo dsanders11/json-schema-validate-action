@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -111,6 +111,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Run semantic release
-        uses: electron/semantic-trusted-release@03517840010ba30fe5264f4875f4cff066b658d1 # v1.1.0
+        uses: electron/semantic-trusted-release@672a62fe17fce21a0d10de5a6825ee54817af317 # v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
