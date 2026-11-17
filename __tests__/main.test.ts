@@ -409,7 +409,11 @@ describe('action', () => {
       ),
       {
         title: 'JSON Schema Validation Error',
-        file: '/foo/bar/baz/config.yml'
+        file: '/foo/bar/baz/config.yml',
+        startLine: 1,
+        endLine: 1,
+        startColumn: 1,
+        endColumn: 16
       }
     );
 
@@ -507,6 +511,21 @@ describe('action', () => {
     expect(core.setOutput).toHaveBeenLastCalledWith('valid', false);
   });
 
+  it('fails if file contains invalid YAML', async () => {
+    mockGetBooleanInput({});
+    mockGetInput({ schema });
+    mockGetMultilineInput({ files });
+
+    vi.mocked(fs.readFile)
+      .mockResolvedValueOnce(schemaContents)
+      .mockResolvedValueOnce('invalid: [unclosed');
+    mockGlobGenerator(['/foo/bar/baz/config.yml']);
+
+    await main.run();
+    expect(runSpy).toHaveReturned();
+    expect(core.setFailed).toHaveBeenCalled();
+  });
+
   describe('can validate schemas', () => {
     beforeEach(() => {
       mockGetBooleanInput({});
@@ -555,7 +574,11 @@ describe('action', () => {
         ),
         {
           title: 'JSON Schema Validation Error',
-          file: '/foo/bar/baz/config.yml'
+          file: '/foo/bar/baz/config.yml',
+          startLine: 8,
+          endLine: 8,
+          startColumn: 20,
+          endColumn: 25
         }
       );
       expect(core.setOutput).toHaveBeenCalledTimes(1);
