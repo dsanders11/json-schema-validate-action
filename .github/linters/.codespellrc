@@ -1,2 +1,4 @@
 [codespell]
+check-hidden =
 ignore-words-list = positionof
+skip = package-lock.json,*/package-lock.json,*/go.mod,*/go.sum,*.log,.git
