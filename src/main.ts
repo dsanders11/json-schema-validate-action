@@ -26,12 +26,7 @@ type AnnotationPosition = Pick<
 >;
 
 function keyMatches(pair: yaml.Pair, name: string): boolean {
-  return (
-    yaml.isScalar(pair.key) &&
-    (typeof pair.key.value === 'string' ||
-      typeof pair.key.value === 'number') &&
-    `${pair.key.value}` === name
-  );
+  return yaml.isScalar(pair.key) && String(pair.key.value) === name;
 }
 
 // Map an error's instancePath to its location in the file, so the
