@@ -80,6 +80,13 @@ jobs:
           additional-schemas: |
             ./__tests__/fixtures/evm-config.schema.json
             https://json.schemastore.org/github-workflow.json
+      - name: Test Local Action (Invalid Schema)
+        id: invalid-schema
+        uses: $/
+        with:
+          schema: json-schema
+          files: ./__tests__/fixtures/invalid.schema.json
+          fail-on-invalid: false
       - name: Confirm Output
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -88,6 +95,7 @@ jobs:
           MULTIPLE_FILE_VALID: ${{ steps.multiple-file-valid.outputs.valid }}
           MULTIPLE_FILE_NOT_VALID: ${{ steps.multiple-file-not-valid.outputs.valid }}
           ADDITIONAL_SCHEMAS_VALID: ${{ steps.additional-schemas-valid.outputs.valid }}
+          INVALID_SCHEMA: ${{ steps.invalid-schema.outputs.valid }}
         with:
           script: |
             const assert = require('node:assert');
@@ -97,11 +105,107 @@ jobs:
             assert.strictEqual(process.env.MULTIPLE_FILE_VALID, 'true', 'Expected output for multiple file valid to be true');
             assert.strictEqual(process.env.MULTIPLE_FILE_NOT_VALID, 'false', 'Expected output for multiple file invalid to be false');
             assert.strictEqual(process.env.ADDITIONAL_SCHEMAS_VALID, 'true', 'Expected output for additional schemas valid to be true');
+            assert.strictEqual(process.env.INVALID_SCHEMA, 'false', 'Expected output for invalid schema to be false');
+
+  confirm-annotations:
+    name: Confirm Annotations
+    runs-on: ubuntu-latest
+    needs: test-action
+    permissions:
+      actions: read
+      checks: read
+    steps:
+      - name: Check Error Annotations
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const assert = require('node:assert');
+
+            const {
+              data: { jobs }
+            } = await github.rest.actions.listJobsForWorkflowRunAttempt({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              attempt_number: Number(process.env.GITHUB_RUN_ATTEMPT)
+            });
+
+            const testJob = jobs.find(
+              job => job.name === 'GitHub Actions Test'
+            );
+            assert.ok(testJob, 'Expected to find GitHub Actions Test job');
+
+            const annotations = await github.paginate(
+              github.rest.checks.listAnnotations,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                check_run_id: testJob.id
+              }
+            );
+
+            const errorAnnotations = annotations.filter(
+              a => a.title === 'JSON Schema Validation Error'
+            );
+
+            const positionOf = a => ({
+              start_line: a.start_line,
+              end_line: a.end_line,
+              start_column: a.start_column,
+              end_column: a.end_column
+            });
+
+            // Single-line nested value ("foo" in invalid.schema.json)
+            const nestedValue = errorAnnotations.find(
+              a => a.path === '__tests__/fixtures/invalid.schema.json'
+            );
+            assert.ok(
+              nestedValue,
+              'Expected annotation on invalid.schema.json'
+            );
+            assert.deepStrictEqual(positionOf(nestedValue), {
+              start_line: 8,
+              end_line: 8,
+              start_column: 20,
+              end_column: 25
+            });
+
+            // Single-line additionalProperties key ("name" in ci.yml)
+            const additionalProp = errorAnnotations.find(
+              a =>
+                a.path === '.github/workflows/ci.yml' &&
+                JSON.parse(a.message).keyword === 'additionalProperties'
+            );
+            assert.ok(
+              additionalProp,
+              'Expected additionalProperties annotation on ci.yml'
+            );
+            assert.deepStrictEqual(positionOf(additionalProp), {
+              start_line: 1,
+              end_line: 1,
+              start_column: 1,
+              end_column: 5
+            });
+
+            // Multi-line root object in ci.yml (lines only, no columns)
+            const multiLine = errorAnnotations.find(
+              a =>
+                a.path === '.github/workflows/ci.yml' &&
+                JSON.parse(a.message).keyword === 'required'
+            );
+            assert.ok(multiLine, 'Expected required annotation on ci.yml');
+            assert.strictEqual(multiLine.start_line, 1);
+            assert.ok(
+              multiLine.end_line > 1,
+              'Expected multi-line annotation end_line > 1'
+            );
+            assert.strictEqual(multiLine.start_column, null);
+            assert.strictEqual(multiLine.end_column, null);
 
   release:
     name: release
     runs-on: ubuntu-latest
-    needs: test-action
+    needs: confirm-annotations
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
