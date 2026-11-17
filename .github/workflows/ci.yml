@@ -43,13 +43,13 @@ jobs:
           persist-credentials: false
       - name: Test Local Action (Single File Valid)
         id: single-file-valid
-        uses: ./
+        uses: $/
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/ci.yml
       - name: Test Local Action (Single File Not Valid)
         id: single-file-not-valid
-        uses: ./
+        uses: $/
         with:
           # Use the wrong schema so it fails validation
           schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
@@ -58,13 +58,13 @@ jobs:
           all-errors: true
       - name: Test Local Action (Multiple File Valid)
         id: multiple-file-valid
-        uses: ./
+        uses: $/
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/**.yml
       - name: Test Local Action (Multiple File Not Valid)
         id: multiple-file-not-valid
-        uses: ./
+        uses: $/
         with:
           # Use the wrong schema so it fails validation
           schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
@@ -73,7 +73,7 @@ jobs:
           all-errors: true
       - name: Test Local Action (Additional Schemas Valid)
         id: additional-schemas-valid
-        uses: ./
+        uses: $/
         with:
           schema: ./__tests__/fixtures/composite.schema.json
           files: ./__tests__/fixtures/composite-config.yml
