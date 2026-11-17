@@ -2,7 +2,6 @@
   "extends": "@tsconfig/node24/tsconfig.json",
   "compilerOptions": {
     "sourceMap": true,
-    "strict": false,
     "noEmit": true,
     "types": ["node"],
     "declaration": false
