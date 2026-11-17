@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -43,13 +43,13 @@ jobs:
           persist-credentials: false
       - name: Test Local Action (Single File Valid)
         id: single-file-valid
-        uses: ./
+        uses: $/
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/ci.yml
       - name: Test Local Action (Single File Not Valid)
         id: single-file-not-valid
-        uses: ./
+        uses: $/
         with:
           # Use the wrong schema so it fails validation
           schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
@@ -58,13 +58,13 @@ jobs:
           all-errors: true
       - name: Test Local Action (Multiple File Valid)
         id: multiple-file-valid
-        uses: ./
+        uses: $/
         with:
           schema: https://json.schemastore.org/github-workflow.json
           files: .github/workflows/**.yml
       - name: Test Local Action (Multiple File Not Valid)
         id: multiple-file-not-valid
-        uses: ./
+        uses: $/
         with:
           # Use the wrong schema so it fails validation
           schema: https://gist.githubusercontent.com/dsanders11/b17fd12c00fc44b487df66d61039398e/raw/f05a9c19d6662282b1576b268e5c3228befc4700/schema.json
@@ -73,7 +73,7 @@ jobs:
           all-errors: true
       - name: Test Local Action (Additional Schemas Valid)
         id: additional-schemas-valid
-        uses: ./
+        uses: $/
         with:
           schema: ./__tests__/fixtures/composite.schema.json
           files: ./__tests__/fixtures/composite-config.yml
@@ -111,6 +111,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Run semantic release
-        uses: electron/semantic-trusted-release@03517840010ba30fe5264f4875f4cff066b658d1 # v1.1.0
+        uses: electron/semantic-trusted-release@672a62fe17fce21a0d10de5a6825ee54817af317 # v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
